@@ -88,19 +88,6 @@
   color: var(--text);
 }
 
-code {
-  color: var(--aqua);
-  font-family: var(--mono);
-  font-size: 0.88em;
-}
-
-.precision-note {
-  margin-top: 2rem !important;
-  padding: 1.25rem 1.4rem;
-  border-left: 3px solid var(--lime);
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
-}
-
 .table-wrap {
   margin: 2rem 0;
   overflow-x: auto;

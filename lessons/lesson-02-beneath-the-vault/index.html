@@ -60,141 +60,163 @@
       <article class="lesson-reading">
         <section class="reading-section" aria-labelledby="ram-title">
           <p class="chapter-number">01 · The rule</p>
-          <h2 id="ram-title">A read finishes in RAM—always.</h2>
+          <h2 id="ram-title">The database reads from RAM, not directly from storage.</h2>
           <p>
-            The CPU cannot evaluate a row while that row is merely bytes in a database file. PostgreSQL’s
-            query executor works with a page that is resident in memory. It checks values, follows row
-            pointers, and returns the result from that in-memory page.
+            Your data rests in files on an SSD or another storage device. But PostgreSQL does not inspect a
+            row while it is still sitting there. First, the part of the file containing that row must be in
+            RAM. Only then can PostgreSQL read it and answer the query.
           </p>
           <p>
-            So “reading from disk” is shorthand for an extra journey: fetch the required page from the
-            storage stack, place it into RAM, and only then read the row. A fast request skips that journey
-            because the page is already waiting in memory.
+            PostgreSQL therefore reserves an area of RAM called the <strong>buffer pool</strong>. Think of it
+            as a temporary holding area for pieces of the database that are being used. A piece already in
+            the buffer can be read immediately. A missing piece must first be copied from storage into the
+            buffer, and is then read from there.
           </p>
-          <p class="precision-note">
-            <strong>A useful precision:</strong> the operating system may already have the file block in its
-            own cache, so a PostgreSQL buffer miss does not guarantee a physical device read. The database
-            still needs the page in RAM before the executor can use it.
+          <p>
+            So both paths end in the same place: <strong>the data is read from RAM</strong>. The difference is
+            whether the needed piece was already waiting there or had to make the trip from storage first.
           </p>
         </section>
 
         <section class="reading-section" aria-labelledby="speed-title">
-          <p class="chapter-number">02 · Why memory matters</p>
-          <h2 id="speed-title">RAM and storage live on different clocks.</h2>
+          <p class="chapter-number">02 · Why the rule matters</p>
+          <h2 id="speed-title">Why does reading from RAM make such a difference?</h2>
           <p>
-            The exact numbers change with hardware and workload. The important fact is the size of the gap:
-            a local SSD page fetch is commonly orders of magnitude slower than a memory access.
+            Imagine that you are reading a book. RAM is the open book on your desk: the page is already in
+            front of you. An SSD is the library downstairs: you must leave the desk, find the book, and bring
+            it back. Network storage is a library in another building: the request must travel even farther
+            before the book reaches your desk.
+          </p>
+          <p>
+            In every case, you finally read at the desk. What changes is the time spent fetching the book.
+            Computers work the same way, only much faster:
           </p>
 
           <div class="table-wrap">
             <table class="latency-table">
-              <caption>Illustrative order-of-magnitude latency</caption>
+              <caption>A simple comparison—the exact speed depends on the hardware</caption>
               <thead>
-                <tr><th scope="col">Source</th><th scope="col">Approximate latency</th><th scope="col">Relative wait</th></tr>
+                <tr><th scope="col">Where the data is</th><th scope="col">Book analogy</th><th scope="col">Approximate wait</th><th scope="col">Compared with RAM</th></tr>
               </thead>
               <tbody>
-                <tr><th scope="row">RAM</th><td>~100 nanoseconds</td><td>1×</td></tr>
-                <tr><th scope="row">Local NVMe SSD</th><td>~100 microseconds</td><td>~1,000×</td></tr>
-                <tr><th scope="row">Network storage</th><td>~1 millisecond</td><td>~10,000×</td></tr>
+                <tr><th scope="row">RAM</th><td>Open on your desk</td><td>~100 nanoseconds</td><td>1×</td></tr>
+                <tr><th scope="row">Local SSD</th><td>Library downstairs</td><td>~100 microseconds</td><td>~1,000×</td></tr>
+                <tr><th scope="row">Network storage</th><td>Library in another building</td><td>~1 millisecond</td><td>~10,000×</td></tr>
               </tbody>
             </table>
           </div>
 
           <p>
-            At those simplified rates, 1,000 memory accesses account for about <strong>0.1 ms</strong> of raw
-            access time. One thousand SSD reads account for about <strong>100 ms</strong>. Database work,
-            operating-system caching, queues, and parallelism change a real measurement—but they do not make
-            the storage boundary disappear.
+            If one RAM read were stretched to <strong>one second</strong>, the comparable SSD trip would take
+            about <strong>17 minutes</strong>, and a network-storage trip about <strong>2 hours and 47
+            minutes</strong>. These are teaching numbers, not a benchmark. Their purpose is to show why
+            avoiding the trip matters so much.
           </p>
         </section>
 
         <section class="reading-section" aria-labelledby="buffer-title">
           <p class="chapter-number">03 · The page buffer</p>
-          <h2 id="buffer-title">The buffer pool is a shelf of page-sized spaces in RAM.</h2>
+          <h2 id="buffer-title">The buffer keeps useful parts of the database close.</h2>
           <p>
-            PostgreSQL normally divides table and index files into <strong>8 KiB pages</strong>. Its shared
-            buffer pool is memory divided into frames of that same size. Each frame can hold one page, and a
-            small lookup structure records which <code>(file, page number)</code> currently occupies it.
+            PostgreSQL does not move one row at a time. It groups rows into fixed-size pieces called
+            <strong>pages</strong>. A PostgreSQL page is normally <strong>8 KiB</strong>. When one row is needed,
+            the whole page containing that row is brought into RAM.
           </p>
           <p>
-            This is why asking for one 100-byte row can still move an 8 KiB page. Storage and the buffer pool
-            exchange pages; the executor finds the particular row after the page is in memory.
+            The buffer pool is divided into 8 KiB slots. Each slot holds one page. For example, if order 821
+            lives on page 17, PostgreSQL checks whether page 17 is already in one of those slots. Once page 17
+            is loaded, order 821—and every other row on that page—is available in RAM.
+          </p>
+          <p>
+            PostgreSQL also remembers which page is in each slot. The next request for anything on page 17
+            can reuse the same copy instead of visiting storage again.
           </p>
 
           <p>
             Take a buffer configured as 1 GiB—often casually called “1 GB.” Because the binary unit divides
-            evenly into 8 KiB pages, its frame count is exact:
+            evenly into 8 KiB pages, the number of slots is exact:
           </p>
 
           <div class="capacity-example" aria-label="One gibibyte buffer pool capacity calculation">
             <p><span>Example buffer pool</span><strong>1 GiB</strong></p>
             <p class="capacity-math">1,073,741,824 bytes ÷ 8,192 bytes per page</p>
-            <p><span>Maximum page frames</span><strong>131,072</strong></p>
+            <p><span>8 KiB page slots</span><strong>131,072</strong></p>
           </div>
 
           <p>
-            If each page held roughly 80 rows of about 100 bytes, those frames could contain about
-            <strong>10.5 million rows</strong> at once. That is a teaching estimate, not a capacity promise:
-            page headers, row overhead, variable row sizes, table pages, and index pages all consume space.
+            If each page held roughly 80 rows of about 100 bytes, those slots could contain about
+            <strong>10.5 million rows</strong> at once. This is only a rough example: real pages also use space
+            for page information, and real rows do not all have the same size.
           </p>
         </section>
 
         <section class="reading-section" aria-labelledby="paths-title">
           <p class="chapter-number">04 · One request, two paths</p>
-          <h2 id="paths-title">A requested page either hits or misses.</h2>
+          <h2 id="paths-title">If the page is missing, the database goes to fetch it.</h2>
           <p>
-            Suppose PostgreSQL determines that the row it needs is on page 17 of <code>orders.dat</code>. The
-            buffer manager looks for that exact page. From there, only one of two things can happen.
+            Suppose the row we want lives on page 17. PostgreSQL first looks for page 17 in the buffer. What
+            happens next depends on whether the page is already there.
           </p>
 
           <div class="request-paths">
             <section aria-labelledby="hit-title">
-              <p class="path-label">Buffer hit · fast path</p>
-              <h3 id="hit-title">Page 17 is already in RAM.</h3>
+              <p class="path-label">Page found · no trip</p>
+              <h3 id="hit-title">Page 17 is already in the buffer.</h3>
               <ol>
-                <li>The page map points to its buffer frame.</li>
-                <li>PostgreSQL raises that frame’s usage counter.</li>
-                <li>The executor reads the row from the frame and returns it.</li>
+                <li>PostgreSQL finds the slot holding page 17.</li>
+                <li>It reads the requested row from that page in RAM.</li>
+                <li>The answer is returned.</li>
               </ol>
-              <p><strong>No database-file read is needed.</strong></p>
+              <p><strong>This is called a buffer hit.</strong></p>
             </section>
 
             <section aria-labelledby="miss-title">
-              <p class="path-label">Buffer miss · slow path</p>
-              <h3 id="miss-title">Page 17 is absent from RAM.</h3>
+              <p class="path-label">Page missing · storage trip</p>
+              <h3 id="miss-title">Page 17 is not in the buffer.</h3>
               <ol>
-                <li>The buffer manager chooses a frame to reuse.</li>
-                <li>If its old page is dirty, PostgreSQL arranges for it to be written out.</li>
-                <li>Page 17 is loaded from the storage stack into that frame.</li>
-                <li>The page map is updated; then the executor reads the row from RAM.</li>
+                <li>PostgreSQL asks storage for the whole of page 17.</li>
+                <li>The page travels from storage into a slot in the buffer.</li>
+                <li>PostgreSQL reads the requested row from that page in RAM.</li>
+                <li>The answer is returned.</li>
               </ol>
-              <p><strong>The result is still served from RAM—after paying the load cost.</strong></p>
+              <p><strong>This is called a buffer miss. The trip is the expensive part.</strong></p>
             </section>
           </div>
+
+          <p>
+            But what if every buffer slot is already occupied when a missing page needs to enter? PostgreSQL
+            must choose an older page to remove. That is where the working set and eviction enter the story.
+          </p>
         </section>
 
         <section class="reading-section" aria-labelledby="working-title">
           <p class="chapter-number">05 · Working set and eviction</p>
-          <h2 id="working-title">Repeated traffic teaches the buffer pool what to keep.</h2>
+          <h2 id="working-title">Hot pages stay. Cold pages make room.</h2>
           <p>
-            The <strong>working set</strong> is the collection of pages current traffic keeps requesting. It is
-            not a configured list. Pages become “hot” because they are hit repeatedly; pages become cold when
-            requests stop returning to them.
+            The <strong>working set</strong> is simply the group of pages the current queries keep asking for.
+            If a dashboard repeatedly reads pages 3, 8, and 17, those pages are its working set. Because they
+            are requested often, we call them <strong>hot pages</strong>.
           </p>
           <p>
-            PostgreSQL’s normal shared-buffer replacement rule is a clock sweep. Each frame has a small usage
-            counter, capped at five. A hit raises the counter. When a miss needs room, a circular clock hand
-            inspects frames: a positive counter is reduced and spared for now; a frame already at zero can be
-            reused.
+            When the buffer is full and a missing page must enter, PostgreSQL needs to reuse one slot. It uses
+            a rule called the <strong>clock sweep</strong>. Imagine a hand moving around the buffer slots like
+            the hand of a clock. Each slot has a recent-use score from 0 to 5. Reading a page again raises its
+            score.
+          </p>
+          <p>
+            As the clock hand moves, a page with a score above zero gets another chance: its score drops by
+            one, and the hand moves on. A page already at zero has not been used recently enough to earn another
+            chance, so it can be removed and its slot reused. Repeated requests keep hot pages alive; pages that
+            are no longer requested slowly become cold and are eventually removed.
           </p>
 
           <div class="sweep-example">
             <h3>One miss, followed step by step</h3>
-            <p>Page 29 is requested, but it is absent. The clock hand begins at frame 1.</p>
+            <p>Page 29 is requested, but it is absent. The clock hand begins at slot 1.</p>
             <div class="table-wrap">
               <table>
                 <thead>
-                  <tr><th scope="col">Frame</th><th scope="col">Page before</th><th scope="col">Usage before</th><th scope="col">What the hand does</th></tr>
+                  <tr><th scope="col">Slot</th><th scope="col">Page</th><th scope="col">Recent-use score</th><th scope="col">What the hand does</th></tr>
                 </thead>
                 <tbody>
                   <tr><th scope="row">1</th><td>3</td><td>2</td><td>Lower to 1; continue</td></tr>
@@ -205,15 +227,14 @@
               </table>
             </div>
             <p class="sweep-result">
-              Frame 3 now holds <strong>page 29</strong> with usage 1. The next search begins at frame 4.
+              Slot 3 now holds <strong>page 29</strong> with a score of 1. The next search begins at slot 4.
             </p>
           </div>
 
           <p>
-            Notice what emerges. Pages 3 and 17 survived this sweep because recent hits gave them another
-            chance. If traffic hits them again, their counters rise again. A page that is no longer requested
-            eventually decays to zero and becomes a victim. A dirty victim costs more because its changes must
-            be preserved before the frame is reused.
+            Pages 3 and 17 survived this sweep because recent reads gave them another chance. Page 5 had a
+            score of zero, so its slot was used for the incoming page 29. PostgreSQL does not need a perfect
+            prediction of the future; repeated traffic naturally keeps the most useful pages warm.
           </p>
           <p>
             When the active pages fit in the buffer, the first requests warm the cache and later requests are
@@ -233,7 +254,7 @@
           <h2 id="standing-title">Where we stand</h2>
           <dl>
             <div><dt>Every answer</dt><dd>is read from a page in RAM.</dd></div>
-            <div><dt>A buffer hit</dt><dd>uses a page that is already resident.</dd></div>
+            <div><dt>A buffer hit</dt><dd>uses a page that is already waiting in the buffer.</dd></div>
             <div><dt>A buffer miss</dt><dd>loads a page, may evict another, and then serves from RAM.</dd></div>
             <div><dt>The working set</dt><dd>is the set of pages repeated traffic keeps hot.</dd></div>
           </dl>
