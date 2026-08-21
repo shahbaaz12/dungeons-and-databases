@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Diagnose a struggling database before deciding to partition or shard it."
+    />
+    <meta name="theme-color" content="#0b0d0c" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="The Groaning Vault · Dungeons &amp; Databases" />
+    <meta property="og:description" content="Diagnose a struggling database before deciding to partition or shard it." />
+    <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-01-the-groaning-vault/" />
+    <meta property="og:image" content="https://shahbaaz12.github.io/dungeons-and-databases/public/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="The Groaning Vault · Dungeons &amp; Databases" />
+    <meta name="twitter:description" content="Diagnose a struggling database before deciding to partition or shard it." />
+    <meta name="twitter:image" content="https://shahbaaz12.github.io/dungeons-and-databases/public/og.png" />
+    <title>Lesson 01 · The Groaning Vault · Dungeons &amp; Databases</title>
+    <link rel="stylesheet" href="../../styles.css" />
+    <link rel="stylesheet" href="./lesson.css" />
+    <script src="../../site.js" defer></script>
+    <script src="./lesson.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson-content">Skip to the lesson</a>
+
+    <header class="site-header lesson-header">
+      <a class="brand" href="../../index.html" aria-label="Return to Dungeons and Databases home">
+        <span class="brand-mark" aria-hidden="true">D<span>&amp;</span>D</span>
+        <span class="brand-copy">
+          <strong>Dungeons &amp; Databases</strong>
+          <small>Split the Realm</small>
+        </span>
+      </a>
+
+      <div class="header-actions">
+        <span class="lesson-badge">Lesson 01</span>
+        <span class="lesson-header-name">The first warning</span>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme">
+          <span aria-hidden="true" data-theme-icon>☀</span>
+          <span data-theme-label>Light</span>
+        </button>
+      </div>
+    </header>
+
+    <main id="lesson-content">
+      <section class="lesson-hero section-shell">
+        <div class="lesson-hero-copy">
+          <p class="eyebrow">Lesson 01 · The first warning</p>
+          <h1>The vault groans. The scribes demand partitions.</h1>
+          <p>
+            Six years of orders now live in one table. Reports are slower, checkout occasionally stalls,
+            and last month’s cleanup ran until dawn. The proposed cure is already on the board:
+            <code>SHARD IT</code>.
+          </p>
+          <div class="lesson-tags" aria-label="Lesson concepts">
+            <span>Bottlenecks</span><span>Baselines</span><span>Design pressure</span>
+          </div>
+        </div>
+
+        <aside class="dragon-counsel compact" aria-labelledby="opening-counsel">
+          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
+          <div>
+            <p class="eyebrow">The Dragon’s Counsel</p>
+            <blockquote id="opening-counsel">
+              “A solution named before a bottleneck is measured is only a more expensive mystery.”
+            </blockquote>
+            <p>Do not split the vault yet. First, make it reveal what hurts.</p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="lab-section" aria-labelledby="lab-title">
+        <div class="section-shell">
+          <div class="lab-heading">
+            <div>
+              <p class="eyebrow">Interactive diagnosis lab</p>
+              <h2 id="lab-title">Name the pressure before choosing the cure.</h2>
+              <p>
+                Select a moment in the vault’s day, run its workload, and read the evidence. The numbers
+                are modeled, but their relationships follow real database behavior.
+              </p>
+            </div>
+            <div class="lab-progress" aria-label="Lab progress">
+              <span>Evidence</span><i data-progress-bar></i><strong data-progress-label>0 / 3 found</strong>
+            </div>
+          </div>
+
+          <div class="scenario-tabs" role="tablist" aria-label="Database workload scenarios">
+            <button class="scenario-tab is-active" id="scenario-working-set" type="button" role="tab" aria-selected="true" aria-controls="scenario-panel" tabindex="0" data-scenario="working-set">
+              <span>01</span><strong>Evening reports</strong><small>Slow customer history</small>
+            </button>
+            <button class="scenario-tab" id="scenario-retention" type="button" role="tab" aria-selected="false" aria-controls="scenario-panel" tabindex="-1" data-scenario="retention">
+              <span>02</span><strong>Archive night</strong><small>Delete old orders</small>
+            </button>
+            <button class="scenario-tab" id="scenario-write-surge" type="button" role="tab" aria-selected="false" aria-controls="scenario-panel" tabindex="-1" data-scenario="write-surge">
+              <span>03</span><strong>Festival launch</strong><small>Checkout write surge</small>
+            </button>
+          </div>
+
+          <div class="diagnostic-console" id="scenario-panel" role="tabpanel" aria-labelledby="scenario-working-set">
+            <div class="console-topline">
+              <div>
+                <span class="console-light" aria-hidden="true"></span>
+                <span data-scenario-label>Evening reports</span>
+              </div>
+              <span>orders-primary · PostgreSQL</span>
+            </div>
+
+            <div class="console-grid">
+              <div class="query-panel">
+                <div class="panel-label"><span>Workload</span><strong data-workload-name>Customer order history</strong></div>
+                <pre><code data-query>SELECT *
+FROM orders
+WHERE customer_id = 84217
+ORDER BY created_at DESC
+LIMIT 50;</code></pre>
+
+                <div class="system-path" aria-label="Query path through the current system">
+                  <div class="system-node"><i>C</i><span><small>Caller</small><strong>Reports UI</strong></span></div>
+                  <b aria-hidden="true">→</b>
+                  <div class="system-node"><i>A</i><span><small>Service</small><strong>Orders API</strong></span></div>
+                  <b aria-hidden="true">→</b>
+                  <div class="system-node system-node-db"><i>DB</i><span><small>218 GB</small><strong>Orders Vault</strong></span></div>
+                </div>
+
+                <button class="run-button" type="button" data-run-workload>
+                  <span data-run-icon aria-hidden="true">▶</span>
+                  <span data-run-label>Run workload</span>
+                </button>
+                <p class="run-note" data-run-note>Metrics will appear after the workload completes.</p>
+              </div>
+
+              <div class="metrics-panel" aria-live="polite" aria-busy="false" data-metrics-panel>
+                <div class="panel-label"><span>Observed evidence</span><strong data-evidence-state>Waiting</strong></div>
+                <div class="metrics-grid">
+                  <article class="metric-card"><span>Query p95</span><strong data-metric="latency">—</strong><small data-metric-note="latency">response time</small></article>
+                  <article class="metric-card"><span>Buffer hit</span><strong data-metric="buffer">—</strong><small data-metric-note="buffer">pages found in memory</small></article>
+                  <article class="metric-card"><span>CPU</span><strong data-metric="cpu">—</strong><small data-metric-note="cpu">primary utilization</small></article>
+                  <article class="metric-card"><span data-dynamic-metric-label>Disk reads</span><strong data-metric="pressure">—</strong><small data-metric-note="pressure">physical pages / sec</small></article>
+                </div>
+
+                <div class="pressure-chart" aria-label="Modeled pressure over five intervals">
+                  <div class="chart-scale"><span>High</span><span>Low</span></div>
+                  <div class="chart-bars" data-chart-bars aria-hidden="true">
+                    <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                  </div>
+                </div>
+
+                <div class="diagnosis" data-diagnosis hidden>
+                  <p>Which pressure best explains this evidence?</p>
+                  <div class="diagnosis-options">
+                    <button type="button" data-answer="cpu">CPU saturation</button>
+                    <button type="button" data-answer="io">Memory / disk I/O</button>
+                    <button type="button" data-answer="maintenance">Data lifecycle</button>
+                    <button type="button" data-answer="writes">Write ceiling</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dragon-response" data-dragon-response aria-live="polite">
+              <div class="dragon-response-mark" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
+              <div>
+                <span>The Archivist is watching</span>
+                <p>Run the workload. Numbers are more loyal than guesses.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="explanation section-shell" aria-labelledby="resources-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">What “slow” can mean</p>
+            <h2 id="resources-title">A database has four finite resources.</h2>
+          </div>
+          <p>
+            Every scaling technique moves pressure away from something. If you cannot name that resource,
+            you cannot know whether the technique worked.
+          </p>
+        </div>
+
+        <div class="resource-grid">
+          <article><span>01</span><h3>CPU</h3><p>Parsing, planning, joins, sorting, compression, and row processing consume compute.</p><strong>Signal</strong><code>high utilization + runnable queue</code></article>
+          <article><span>02</span><h3>Memory</h3><p>The buffer pool keeps useful pages close. When the active set no longer fits, disk work rises sharply.</p><strong>Signal</strong><code>falling hit ratio + rising reads</code></article>
+          <article><span>03</span><h3>Disk</h3><p>Random reads, WAL flushes, checkpoints, and maintenance compete for finite IOPS and bandwidth.</p><strong>Signal</strong><code>I/O wait + queue depth</code></article>
+          <article><span>04</span><h3>Network</h3><p>Large results, replication streams, and cross-machine queries consume throughput and round trips.</p><strong>Signal</strong><code>transfer time + saturation</code></article>
+        </div>
+      </section>
+
+      <section class="pressure-types section-shell" aria-labelledby="pressure-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Three different walls</p>
+            <h2 id="pressure-title">Partitioning and sharding answer different complaints.</h2>
+          </div>
+          <p>The word “split” hides three distinct goals. Only one necessarily needs more machines.</p>
+        </div>
+
+        <div class="comparison-table" role="table" aria-label="Database pressure and likely first response">
+          <div class="comparison-row comparison-head" role="row"><span role="columnheader">Pressure</span><span role="columnheader">What hurts</span><span role="columnheader">First questions</span><span role="columnheader">Likely direction</span></div>
+          <div class="comparison-row" role="row"><strong role="cell">Query pressure</strong><span role="cell">Too many pages touched</span><span role="cell">Is the access path wrong?</span><span role="cell"><i>Query + index</i></span></div>
+          <div class="comparison-row" role="row"><strong role="cell">Lifecycle pressure</strong><span role="cell">Old data is costly to manage</span><span role="cell">Do natural boundaries exist?</span><span role="cell"><i>Partition</i></span></div>
+          <div class="comparison-row" role="row"><strong role="cell">Capacity pressure</strong><span role="cell">Writes or data exceed one host</span><span role="cell">Can ownership be divided?</span><span role="cell"><i>Shard</i></span></div>
+        </div>
+
+        <aside class="dragon-counsel" aria-labelledby="middle-counsel">
+          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
+          <div>
+            <p class="eyebrow">The Dragon Explains</p>
+            <blockquote id="middle-counsel">“Partitioning draws walls inside one vault. Sharding builds more vaults.”</blockquote>
+            <p>
+              A partition can help the planner ignore irrelevant data and can turn retention into a cheap
+              metadata operation. But every partition still shares the same machine. A shard moves ownership
+              to another machine—and hands your application the work of finding it.
+            </p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="reckoning section-shell" aria-labelledby="reckoning-title">
+        <div class="reckoning-intro">
+          <p class="eyebrow">The Dragon’s Reckoning</p>
+          <h2 id="reckoning-title">Where we stand</h2>
+          <p>
+            We have not changed the architecture. That is progress: we now know what must be understood
+            before adding one.
+          </p>
+        </div>
+
+        <div class="standing-grid">
+          <article><span>What we learned</span><strong>“Slow” is not a diagnosis</strong><p>CPU, memory, disk, network, and maintenance pressure leave different evidence.</p></article>
+          <article><span>What we solved</span><strong>Nothing—yet</strong><p>We resisted an unjustified split and established the questions that must come first.</p></article>
+          <article><span>What remains</span><strong>Why pages become expensive</strong><p>The buffer pool and working set will explain the first sharp performance cliff.</p></article>
+          <article><span>Our system now</span><strong>One API · one database</strong><p>The original architecture remains intact while we descend beneath its tables.</p></article>
+        </div>
+
+        <div class="next-gate">
+          <div>
+            <span>Next · Lesson 02</span>
+            <h3>Beneath the Vault</h3>
+            <p>Follow one query through disk pages, memory, and eviction.</p>
+          </div>
+          <button type="button" disabled aria-describedby="next-note">The next gate opens soon</button>
+          <small id="next-note">Lesson 02 will be added after this foundation is approved.</small>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer section-shell">
+      <div><strong>Dungeons &amp; Databases</strong><p>A visual journey through database scaling.</p></div>
+      <a href="../../index.html">Return to the map</a>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="An interactive journey from database pages and partitions to sharding, guided by an old, wise dragon."
+    />
+    <meta name="theme-color" content="#0b0d0c" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Dungeons &amp; Databases · Split the Realm" />
+    <meta
+      property="og:description"
+      content="Learn why databases partition and shard through an interactive journey guided by an old, wise dragon."
+    />
+    <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/" />
+    <meta property="og:image" content="https://shahbaaz12.github.io/dungeons-and-databases/public/og.png" />
+    <meta property="og:image:width" content="1672" />
+    <meta property="og:image:height" content="941" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Dungeons &amp; Databases · Split the Realm" />
+    <meta
+      name="twitter:description"
+      content="Learn why databases partition and shard through an interactive journey guided by an old, wise dragon."
+    />
+    <meta name="twitter:image" content="https://shahbaaz12.github.io/dungeons-and-databases/public/og.png" />
+    <title>Dungeons &amp; Databases · Split the Realm</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to the journey</a>
+
+    <header class="site-header">
+      <a class="brand" href="./index.html" aria-label="Dungeons and Databases home">
+        <span class="brand-mark" aria-hidden="true">D<span>&amp;</span>D</span>
+        <span class="brand-copy">
+          <strong>Dungeons &amp; Databases</strong>
+          <small>Split the Realm</small>
+        </span>
+      </a>
+
+      <div class="header-actions">
+        <span class="unlock-badge"><i aria-hidden="true"></i> Chapter 01 unlocked</span>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme">
+          <span aria-hidden="true" data-theme-icon>☀</span>
+          <span data-theme-label>Light</span>
+        </button>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <section class="hero section-shell">
+        <div class="hero-copy">
+          <p class="eyebrow"><span>System design journey</span><span class="eyebrow-rule"></span></p>
+          <h1>Before you split the realm, learn what is breaking.</h1>
+          <p class="hero-lede">
+            Follow one growing database from its first slow query to partitions, replicas, and shards.
+            Every new piece of architecture must earn its place.
+          </p>
+
+          <div class="hero-actions">
+            <a class="button button-primary" href="./lessons/lesson-01-the-groaning-vault/">
+              Enter the first vault <span aria-hidden="true">→</span>
+            </a>
+            <a class="button button-secondary" href="#journey">See the path</a>
+          </div>
+
+          <dl class="journey-facts" aria-label="Course summary">
+            <div><dt>8</dt><dd>guided lessons</dd></div>
+            <div><dt>1</dt><dd>evolving database</dd></div>
+            <div><dt>1</dt><dd>question at the gate</dd></div>
+          </dl>
+        </div>
+
+        <div class="hero-stage" aria-label="The current database architecture">
+          <div class="stage-heading">
+            <span>Where the story begins</span>
+            <span class="status-dot">Under pressure</span>
+          </div>
+
+          <div class="realm-map">
+            <div class="map-node map-node-client">
+              <span class="node-glyph" aria-hidden="true">C</span>
+              <span><small>Request source</small><strong>Clients</strong></span>
+            </div>
+            <span class="map-arrow" aria-hidden="true">→</span>
+            <div class="map-node">
+              <span class="node-glyph" aria-hidden="true">A</span>
+              <span><small>Application</small><strong>Orders API</strong></span>
+            </div>
+            <span class="map-arrow" aria-hidden="true">→</span>
+            <div class="map-node map-node-database">
+              <span class="node-glyph" aria-hidden="true">DB</span>
+              <span><small>One growing table</small><strong>Orders Vault</strong></span>
+              <i class="pressure-ring" aria-hidden="true"></i>
+            </div>
+          </div>
+
+          <div class="pressure-readout">
+            <span>Working set</span>
+            <div class="pressure-track" aria-hidden="true"><i></i></div>
+            <strong>118% of memory</strong>
+          </div>
+
+          <p class="stage-caption">
+            The system is slow. The cause is still unknown. Sharding now would be a guess.
+          </p>
+        </div>
+      </section>
+
+      <section class="dragon-arrival section-shell" aria-labelledby="dragon-title">
+        <div class="dragon-seal" aria-hidden="true">
+          <img src="./public/og.png" alt="" />
+          <i></i>
+        </div>
+        <div class="dragon-message">
+          <p class="eyebrow">The old dragon speaks</p>
+          <h2 id="dragon-title">“A crowded vault and a broken vault are not the same thing.”</h2>
+          <p>
+            The scribes want twelve partitions before they have measured one bottleneck. Walk with me
+            through the machinery beneath their tables. We will split nothing until we know what the split
+            is meant to solve.
+          </p>
+          <p class="dragon-signature">— The Archivist, keeper of the deep ledger</p>
+        </div>
+      </section>
+
+      <section class="journey section-shell" id="journey" aria-labelledby="journey-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">The map of the realm</p>
+            <h2 id="journey-title">Every lesson adds one justified decision.</h2>
+          </div>
+          <p>
+            We begin with symptoms, descend into database internals, and return with enough knowledge to
+            choose between an index, a partition, a replica, and a shard.
+          </p>
+        </div>
+
+        <ol class="lesson-path">
+          <li class="lesson-card lesson-card-active">
+            <a href="./lessons/lesson-01-the-groaning-vault/">
+              <span class="lesson-number">01</span>
+              <span class="lesson-state">Unlocked</span>
+              <span class="lesson-kicker">The first warning</span>
+              <strong>The Groaning Vault</strong>
+              <span class="lesson-summary">Diagnose why the database is slow before choosing a remedy.</span>
+              <span class="lesson-concepts"><i>Bottlenecks</i><i>Baseline</i><i>Pressure</i></span>
+              <span class="lesson-link">Explore lesson <b aria-hidden="true">→</b></span>
+            </a>
+          </li>
+          <li class="lesson-card">
+            <div>
+              <span class="lesson-number">02</span>
+              <span class="lesson-state">Next</span>
+              <span class="lesson-kicker">Inside the machine</span>
+              <strong>Beneath the Vault</strong>
+              <span class="lesson-summary">See pages, the buffer pool, eviction, and the working-set cliff.</span>
+              <span class="lesson-concepts"><i>Pages</i><i>Memory</i><i>I/O</i></span>
+            </div>
+          </li>
+          <li class="lesson-card">
+            <div>
+              <span class="lesson-number">03</span>
+              <span class="lesson-state">Sealed</span>
+              <span class="lesson-kicker">The cheaper answer</span>
+              <strong>Sharpen Before You Split</strong>
+              <span class="lesson-summary">Change the access path and count the pages an index saves.</span>
+              <span class="lesson-concepts"><i>Indexes</i><i>Plans</i><i>Write cost</i></span>
+            </div>
+          </li>
+          <li class="lesson-card">
+            <div>
+              <span class="lesson-number">04</span>
+              <span class="lesson-state">Sealed</span>
+              <span class="lesson-kicker">Boundaries within</span>
+              <strong>Divide the Hoard</strong>
+              <span class="lesson-summary">Create table partitions and watch the planner prune entire regions.</span>
+              <span class="lesson-concepts"><i>Range</i><i>Pruning</i><i>Keys</i></span>
+            </div>
+          </li>
+          <li class="lesson-card">
+            <div>
+              <span class="lesson-number">05</span>
+              <span class="lesson-state">Sealed</span>
+              <span class="lesson-kicker">A clean boundary</span>
+              <strong>Seal the Old Chambers</strong>
+              <span class="lesson-summary">Compare row deletion with dropping one old partition.</span>
+              <span class="lesson-concepts"><i>Retention</i><i>Vacuum</i><i>Lifecycle</i></span>
+            </div>
+          </li>
+          <li class="lesson-card">
+            <div>
+              <span class="lesson-number">06</span>
+              <span class="lesson-state">Sealed</span>
+              <span class="lesson-kicker">The walls remain</span>
+              <strong>One Castle, Same Foundation</strong>
+              <span class="lesson-summary">Discover why local partitions do not add another machine.</span>
+              <span class="lesson-concepts"><i>Ceilings</i><i>Replicas</i><i>Writes</i></span>
+            </div>
+          </li>
+          <li class="lesson-card">
+            <div>
+              <span class="lesson-number">07</span>
+              <span class="lesson-state">Sealed</span>
+              <span class="lesson-kicker">Beyond one keep</span>
+              <strong>Across Many Keeps</strong>
+              <span class="lesson-summary">Route data across machines and choose a shard key that survives growth.</span>
+              <span class="lesson-concepts"><i>Routing</i><i>Distribution</i><i>Keys</i></span>
+            </div>
+          </li>
+          <li class="lesson-card">
+            <div>
+              <span class="lesson-number">08</span>
+              <span class="lesson-state">Sealed</span>
+              <span class="lesson-kicker">The hidden bill</span>
+              <strong>The Price of Many Realms</strong>
+              <span class="lesson-summary">Meet hotspots, fan-out, rebalancing, and cross-shard transactions.</span>
+              <span class="lesson-concepts"><i>Hotspots</i><i>Fan-out</i><i>Rebalance</i></span>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section class="final-promise section-shell">
+        <p class="eyebrow">The promise at the gate</p>
+        <blockquote>
+          “When you leave this realm, you will not ask how to shard first. You will ask what has run out—and
+          know which tool earns the right to fix it.”
+        </blockquote>
+        <span>The Archivist</span>
+      </section>
+    </main>
+
+    <footer class="site-footer section-shell">
+      <div>
+        <strong>Dungeons &amp; Databases</strong>
+        <p>A visual journey through database scaling.</p>
+      </div>
+      <p>Built one justified decision at a time.</p>
+    </footer>
+  </body>
+</html>
