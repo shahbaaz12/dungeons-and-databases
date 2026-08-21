@@ -309,6 +309,7 @@ code {
 .next-gate h3 { margin: 0.5rem 0 0; font: 500 clamp(2rem, 4vw, 3.4rem)/1 var(--serif); }
 .next-gate p { margin-bottom: 0; color: var(--muted); }
 .next-gate button { min-height: 46px; padding: 0.8rem 1rem; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-soft); color: var(--faint); font-weight: 800; }
+.next-gate > a { white-space: nowrap; }
 .next-gate small { grid-column: 2; color: var(--faint); text-align: center; }
 .site-footer a { color: var(--moss); font-weight: 800; text-decoration: none; }
 

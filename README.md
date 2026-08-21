@@ -11,7 +11,9 @@ lets the reader observe it, and adds architecture only when the previous system 
 - Course entrance and eight-lesson journey map
 - The Archivist, an old dragon who introduces each challenge and closes with a reckoning
 - Lesson 01: **The Groaning Vault**
+- Lesson 02: **Beneath the Vault**
 - Three interactive diagnostic workloads with persistent progress
+- A deterministic buffer-pool simulator with clock-sweep eviction
 - Responsive dark and light themes
 - Static GitHub Pages deployment
 
@@ -43,6 +45,8 @@ index.html                                  course entrance and journey map
 styles.css                                 shared visual system
 site.js                                    shared theme behavior
 lessons/lesson-01-the-groaning-vault/      first interactive lesson
+lessons/lesson-02-beneath-the-vault/       pages and buffer-pool simulation
+lessons/lesson-shared.css                  shared lesson framing
 public/og.png                              social preview and Archivist portrait
 ```
 
