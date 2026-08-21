@@ -74,7 +74,8 @@
           </p>
           <p>
             So both paths end in the same place: <strong>the data is read from RAM</strong>. The difference is
-            whether the needed piece was already waiting there or had to make the trip from storage first.
+            whether <mark class="quiet-highlight">the needed piece was already waiting there or had to make
+            the trip from storage first.</mark>
           </p>
         </section>
 
@@ -106,41 +107,56 @@
             </table>
           </div>
 
-          <p>
+          <p class="source-note">
             If one RAM read were stretched to <strong>one second</strong>, the comparable SSD trip would take
             about <strong>17 minutes</strong>, and a network-storage trip about <strong>2 hours and 47
-            minutes</strong>. These are teaching numbers, not a benchmark. Their purpose is to show why
-            avoiding the trip matters so much.
+            minutes</strong>. These are rough orders of magnitude, not a benchmark or a promise. Hardware,
+            caching, queueing, access patterns, and network distance can change the real result. For a deeper
+            treatment, see Brendan Gregg’s
+            <a href="https://www.brendangregg.com/systems-performance-2nd-edition-book.html">Systems Performance, 2nd Edition</a>.
           </p>
         </section>
 
         <section class="reading-section" aria-labelledby="buffer-title">
           <p class="chapter-number">03 · The page buffer</p>
-          <h2 id="buffer-title">The buffer keeps useful parts of the database close.</h2>
-          <p>
-            PostgreSQL does not move one row at a time. It groups rows into fixed-size pieces called
-            <strong>pages</strong>. A PostgreSQL page is normally <strong>8 KiB</strong>. When one row is needed,
-            the whole page containing that row is brought into RAM.
-          </p>
-          <p>
-            The buffer pool is divided into 8 KiB slots. Each slot holds one page. For example, if order 821
-            lives on page 17, PostgreSQL checks whether page 17 is already in one of those slots. Once page 17
-            is loaded, order 821—and every other row on that page—is available in RAM.
-          </p>
-          <p>
-            PostgreSQL also remembers which page is in each slot. The next request for anything on page 17
-            can reuse the same copy instead of visiting storage again.
-          </p>
+          <h2 id="buffer-title">Pages are the real currency of database reads.</h2>
+
+          <div class="page-currency-layout">
+            <div>
+              <p>
+                PostgreSQL does not move one row at a time. It groups rows into fixed-size pieces called
+                <strong>pages</strong>. A PostgreSQL page is normally <strong>8 KB</strong>. When one row is
+                needed, the whole page containing that row is brought into RAM.
+              </p>
+              <p>
+                The buffer pool is divided into 8 KB slots. Each slot holds one page. Once a page is loaded,
+                every row on that page is available in RAM—not only the row that caused the trip.
+              </p>
+              <p>
+                PostgreSQL remembers which page is in each slot. The next request for any row on that page can
+                reuse the same copy instead of visiting storage again.
+              </p>
+            </div>
+
+            <aside class="rows-to-pages" aria-label="Simplified example showing rows grouped into pages">
+              <p>A simplified table</p>
+              <div><span>Page 1</span><strong>Rows 1–10</strong></div>
+              <div class="requested-page"><span>Page 2</span><strong>Rows 11–20</strong><small>Row 14 lives here</small></div>
+              <div><span>Page 3</span><strong>Rows 21–30</strong></div>
+              <p class="visual-result">Ask for row 14 → bring page 2</p>
+              <small>Real rows vary in size; these groups are only an example.</small>
+            </aside>
+          </div>
 
           <p>
             Take a buffer configured as 1 GiB—often casually called “1 GB.” Because the binary unit divides
-            evenly into 8 KiB pages, the number of slots is exact:
+            evenly into 8 KB pages, the number of slots is exact:
           </p>
 
           <div class="capacity-example" aria-label="One gibibyte buffer pool capacity calculation">
             <p><span>Example buffer pool</span><strong>1 GiB</strong></p>
             <p class="capacity-math">1,073,741,824 bytes ÷ 8,192 bytes per page</p>
-            <p><span>8 KiB page slots</span><strong>131,072</strong></p>
+            <p><span>8 KB page slots</span><strong>131,072</strong></p>
           </div>
 
           <p>
@@ -174,16 +190,16 @@
               <p class="path-label">Page missing · storage trip</p>
               <h3 id="miss-title">Page 17 is not in the buffer.</h3>
               <ol>
-                <li>PostgreSQL asks storage for the whole of page 17.</li>
-                <li>The page travels from storage into a slot in the buffer.</li>
-                <li>PostgreSQL reads the requested row from that page in RAM.</li>
-                <li>The answer is returned.</li>
+                <li>PostgreSQL sends a request for page 17 to storage.</li>
+                <li>Storage reads page 17 and sends the page back.</li>
+                <li>PostgreSQL places the returned page into a buffer slot in RAM.</li>
+                <li>PostgreSQL reads the requested row from that page and returns the answer.</li>
               </ol>
               <p><strong>This is called a buffer miss. The trip is the expensive part.</strong></p>
             </section>
           </div>
 
-          <p>
+          <p class="transition-callout">
             But what if every buffer slot is already occupied when a missing page needs to enter? PostgreSQL
             must choose an older page to remove. That is where the working set and eviction enter the story.
           </p>
@@ -198,49 +214,15 @@
             are requested often, we call them <strong>hot pages</strong>.
           </p>
           <p>
-            When the buffer is full and a missing page must enter, PostgreSQL needs to reuse one slot. It uses
-            a rule called the <strong>clock sweep</strong>. Imagine a hand moving around the buffer slots like
-            the hand of a clock. Each slot has a recent-use score from 0 to 5. Reading a page again raises its
-            score.
+            To make room, PostgreSQL uses a <strong>clock sweep</strong>. Each buffer slot has a small score.
+            Reading its page raises the score. When space is needed, a clock hand moves through the slots. A
+            page with a score above zero loses one point and stays for now. A page already at zero is removed,
+            and the incoming page takes its place.
           </p>
           <p>
-            As the clock hand moves, a page with a score above zero gets another chance: its score drops by
-            one, and the hand moves on. A page already at zero has not been used recently enough to earn another
-            chance, so it can be removed and its slot reused. Repeated requests keep hot pages alive; pages that
-            are no longer requested slowly become cold and are eventually removed.
-          </p>
-
-          <div class="sweep-example">
-            <h3>One miss, followed step by step</h3>
-            <p>Page 29 is requested, but it is absent. The clock hand begins at slot 1.</p>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr><th scope="col">Slot</th><th scope="col">Page</th><th scope="col">Recent-use score</th><th scope="col">What the hand does</th></tr>
-                </thead>
-                <tbody>
-                  <tr><th scope="row">1</th><td>3</td><td>2</td><td>Lower to 1; continue</td></tr>
-                  <tr><th scope="row">2</th><td>17</td><td>1</td><td>Lower to 0; continue</td></tr>
-                  <tr class="victim-row"><th scope="row">3</th><td>5</td><td>0</td><td>Evict page 5; load page 29</td></tr>
-                  <tr><th scope="row">4</th><td>8</td><td>3</td><td>Not visited; hand stops here</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <p class="sweep-result">
-              Slot 3 now holds <strong>page 29</strong> with a score of 1. The next search begins at slot 4.
-            </p>
-          </div>
-
-          <p>
-            Pages 3 and 17 survived this sweep because recent reads gave them another chance. Page 5 had a
-            score of zero, so its slot was used for the incoming page 29. PostgreSQL does not need a perfect
-            prediction of the future; repeated traffic naturally keeps the most useful pages warm.
-          </p>
-          <p>
-            When the active pages fit in the buffer, the first requests warm the cache and later requests are
-            mostly hits. When the active pages are larger than the buffer—and traffic jumps around—useful pages
-            can be evicted before they are requested again. Misses create more misses. That is
-            <strong>thrashing</strong>.
+            Frequent requests keep hot pages alive. Unused pages cool down and make room. If the whole working
+            set fits, later requests are mostly buffer hits. If it does not fit, useful pages may be removed
+            before they are needed again, causing repeated storage trips. That is <strong>thrashing</strong>.
           </p>
 
           <blockquote class="dragon-line closing-line">
