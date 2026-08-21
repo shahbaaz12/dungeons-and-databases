@@ -1,0 +1,24 @@
+.shard-map { margin: 2rem 0; padding: clamp(1.25rem, 4vw, 2rem); border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+.shard-router { width: min(360px, 100%); margin: auto; padding: 1.2rem; border: 1px solid var(--moss); border-radius: 10px; text-align: center; }
+.shard-map span, .shard-map small { display: block; color: var(--faint); font: 700 0.6rem/1.35 var(--mono); text-transform: uppercase; }
+.shard-map strong { display: block; margin: 0.45rem 0; font: 500 1.65rem/1.1 var(--serif); }
+.shard-lines { display: grid; grid-template-columns: repeat(3, 1fr); width: 68%; height: 48px; margin: auto; }
+.shard-lines i { border-bottom: 1px solid var(--jade); }
+.shard-lines i:not(:last-child) { border-right: 1px solid var(--jade); }
+.shard-nodes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem; }
+.shard-nodes > div { padding: 1.15rem; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-soft); text-align: center; }
+.key-triad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem; margin: 2rem 0; }
+.key-triad article { padding: 1.3rem; border: 1px solid var(--line); border-radius: 11px; background: var(--panel); }
+.key-triad span { color: var(--jade); font: 800 0.65rem/1 var(--mono); }
+.key-triad strong { display: block; margin-top: 1.4rem; font: 500 1.55rem/1.15 var(--serif); }
+.key-triad p { color: var(--muted); line-height: 1.55; }
+.tail-math { display: grid; grid-template-columns: auto auto 1fr auto auto; gap: 0.8rem; align-items: baseline; margin: 2rem 0; padding: 1.3rem; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--faint); font: 700 0.62rem/1.4 var(--mono); text-transform: uppercase; }
+.tail-math strong { color: var(--moss); font: 500 2.4rem/1 var(--serif); }
+.tail-math i { border-bottom: 1px solid var(--line-bright); text-align: center; }
+.migration-steps { display: grid; gap: 0; margin: 2rem 0; padding: 0; list-style: none; }
+.migration-steps li { display: grid; grid-template-columns: 54px 1fr; gap: 1rem; padding: 1.2rem 0; border-top: 1px solid var(--line); }
+.migration-steps li:last-child { border-bottom: 1px solid var(--line); }
+.migration-steps li > span { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid var(--jade); border-radius: 50%; color: var(--jade); font: 800 0.65rem/1 var(--mono); }
+.migration-steps strong { font: 500 1.5rem/1.2 var(--serif); }
+.migration-steps p { margin: 0.35rem 0 0; color: var(--muted); line-height: 1.6; }
+@media (max-width: 700px) { .shard-nodes, .key-triad { grid-template-columns: 1fr; } .shard-lines { display: none; } .shard-router { margin-bottom: 0.7rem; } .tail-math { grid-template-columns: 1fr auto; } .tail-math i { grid-column: 1 / -1; } }

@@ -1,0 +1,12 @@
+.partition-strip { display: flex; gap: 0.6rem; align-items: stretch; margin: 2rem 0; padding: 1.2rem; overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.partition-strip > div, .pruning-row span { min-width: 110px; padding: 1.15rem 0.9rem; border: 1px solid var(--line); border-radius: 9px; color: var(--text); text-align: center; font-weight: 800; }
+.partition-strip > span { align-self: center; color: var(--moss); font-weight: 800; }
+.partition-strip small, .pruning-row small { display: block; margin-top: 0.35rem; color: var(--faint); font: 700 0.58rem/1 var(--mono); text-transform: uppercase; }
+.partition-parent { background: rgb(82 214 189 / 7%); border-color: var(--jade) !important; }
+.partition-piece.cold { opacity: 0.56; }
+.partition-piece.warm { opacity: 0.8; }
+.partition-piece.hot { border-color: var(--moss); background: rgb(183 243 107 / 6%); }
+.pruning-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.7rem; margin: 2rem 0; }
+.pruning-row .pruned { opacity: 0.42; text-decoration: line-through; }
+.pruning-row .opened { border-color: var(--moss); background: rgb(183 243 107 / 7%); }
+@media (max-width: 620px) { .pruning-row { grid-template-columns: repeat(2, 1fr); } }

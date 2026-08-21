@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Learn isolation, lost updates, CAP, consistency levels, idempotency, sagas, and the final database scaling decision matrix." />
+    <meta name="theme-color" content="#0b0d0c" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="The Price of Many Realms · Dungeons &amp; Databases" />
+    <meta property="og:description" content="Every copy and split creates a consistency bill. Learn how to choose where to pay it." />
+    <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-08-the-price-of-many-realms/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="The Price of Many Realms · Dungeons &amp; Databases" />
+    <meta name="twitter:description" content="Finish the journey with consistency choices and a scaling decision matrix." />
+    <title>Lesson 08 · The Price of Many Realms · Dungeons &amp; Databases</title>
+    <link rel="stylesheet" href="../../styles.css" />
+    <link rel="stylesheet" href="../lesson-shared.css" />
+    <link rel="stylesheet" href="../lesson-reading.css" />
+    <link rel="stylesheet" href="./lesson.css" />
+    <script src="../../site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson-content">Skip to the lesson</a>
+    <header class="site-header lesson-header">
+      <a class="brand" href="../../index.html" aria-label="Return to Dungeons and Databases home"><span class="brand-mark" aria-hidden="true">D<span>&amp;</span>D</span><span class="brand-copy"><strong>Dungeons &amp; Databases</strong><small>Split the Realm</small></span></a>
+      <div class="header-actions"><span class="lesson-badge">Lesson 08</span><span class="lesson-header-name">The hidden bill</span><button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme"><span aria-hidden="true" data-theme-icon>☀</span><span data-theme-label>Light</span></button></div>
+    </header>
+
+    <main id="lesson-content">
+      <section class="lesson-hero section-shell">
+        <div class="lesson-hero-copy">
+          <p class="eyebrow">Lesson 08 · The hidden bill</p>
+          <h1>Every copy asks which truth wins.</h1>
+          <p>
+            A single transaction once guarded the whole change. Across replicas and shards, delays and failures make
+            intermediate states visible. Consistency is not one switch; it is a choice made for each operation.
+          </p>
+          <div class="lesson-tags" aria-label="Lesson concepts"><span>Isolation</span><span>CAP</span><span>Idempotency</span><span>Sagas</span></div>
+        </div>
+        <aside class="dragon-counsel compact" aria-labelledby="opening-counsel">
+          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
+          <div><p class="eyebrow">The Dragon’s Counsel</p><blockquote id="opening-counsel">“When truth has many homes, certainty must travel between them.”</blockquote><p>The stricter the promise, the more latency or availability may be spent to keep it.</p></div>
+        </aside>
+      </section>
+
+      <article class="lesson-reading">
+        <section class="reading-section" aria-labelledby="baseline-title">
+          <p class="chapter-number">01 · The baseline</p>
+          <h2 id="baseline-title">One database already makes strong promises.</h2>
+          <p>
+            A PostgreSQL transaction gives us the familiar ACID foundation: changes are all-or-nothing, valid rules
+            remain true, concurrent work is isolated according to a chosen level, and committed work survives. WAL
+            makes durable recovery possible; locks and multi-version concurrency control shape what concurrent
+            transactions can observe.
+          </p>
+          <p>
+            Isolation is not simply on or off. PostgreSQL offers different views of concurrent work, each trading
+            stronger guarantees for more waiting or more retries.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <caption>Transaction isolation inside one PostgreSQL database</caption>
+              <thead><tr><th>Level</th><th>What a transaction sees</th><th>Application consequence</th></tr></thead>
+              <tbody>
+                <tr><td>Read Committed</td><td>Each statement gets a fresh snapshot of committed data.</td><td>Two statements in one transaction can see different committed results.</td></tr>
+                <tr><td>Repeatable Read</td><td>The transaction keeps one stable snapshot.</td><td>Conflicting updates can still require an abort.</td></tr>
+                <tr><td>Serializable</td><td>Results behave as if transactions ran one at a time.</td><td>PostgreSQL may abort a transaction; the application must retry it.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="source-note">See PostgreSQL’s official <a href="https://www.postgresql.org/docs/current/transaction-iso.html">Transaction Isolation</a> documentation for the exact guarantees and retry behavior.</p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="lost-title">
+          <p class="chapter-number">02 · A race in one row</p>
+          <h2 id="lost-title">Read, calculate, write can lose a valid update.</h2>
+          <p>
+            Two workers read inventory <code>10</code>. Each sells one item, calculates <code>9</code>, and writes
+            <code>9</code>. Both transactions can commit, but only one decrement remains. The second assignment
+            overwrote the first worker’s decision with the same stale calculation.
+          </p>
+          <div class="lost-update" aria-label="Two workers overwrite the same inventory value">
+            <div><span>Worker A</span><strong>reads 10 → writes 9</strong></div>
+            <div class="lost-center"><span>Inventory</span><strong>10 → 9</strong><small>one sale disappeared</small></div>
+            <div><span>Worker B</span><strong>reads 10 → writes 9</strong></div>
+          </div>
+          <p>
+            The best fix is often to express the operation atomically inside the database:
+            <code>UPDATE inventory SET quantity = quantity - 1 WHERE … AND quantity &gt; 0</code>. PostgreSQL sees
+            the dependency and serializes the row updates. Other valid tools are <code>SELECT … FOR UPDATE</code>,
+            or Serializable isolation with a retry loop.
+          </p>
+          <p class="transition-callout">Do not ask the application to protect a rule the database can express in one atomic statement.</p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="cap-title">
+          <p class="chapter-number">03 · When the wire breaks</p>
+          <h2 id="cap-title">A network partition forces a choice.</h2>
+          <p>
+            CAP is about the moment connected machines can no longer communicate reliably. The partition is not an
+            option we select; it is the failure already happening. During it, the system must choose between
+            <strong>consistency</strong>—refuse some operations rather than risk conflicting truths—or
+            <strong>availability</strong>—continue answering and accept that copies may diverge.
+          </p>
+          <div class="comparison-grid">
+            <article><span>Consistency during partition</span><strong>Stop before disagreement</strong><p>Synchronous or quorum paths may wait or reject work when enough members cannot confirm it.</p></article>
+            <article><span>Availability during partition</span><strong>Answer with a local truth</strong><p>Asynchronous paths can keep serving, but acknowledged writes or reads may later need reconciliation.</p></article>
+          </div>
+          <p>
+            Most days there is no partition, yet replication still crosses a network. PACELC adds the daily question:
+            <strong>else</strong>, when the network is healthy, do we pay extra latency for stronger consistency or
+            accept weaker consistency for faster responses? Replication’s synchronous-versus-asynchronous choice was
+            already this tradeoff in concrete form.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="levels-title">
+          <p class="chapter-number">04 · Name the promise</p>
+          <h2 id="levels-title">Different operations deserve different consistency.</h2>
+          <div class="table-wrap">
+            <table>
+              <caption>Useful consistency promises</caption>
+              <thead><tr><th>Promise</th><th>Meaning</th><th>Possible use</th></tr></thead>
+              <tbody>
+                <tr><td>Linearizable</td><td>Every operation appears to occur at one real-time point.</td><td>Claiming a unique username or spending a balance.</td></tr>
+                <tr><td>Read-your-writes</td><td>A user sees their own completed changes.</td><td>Showing the address immediately after saving it.</td></tr>
+                <tr><td>Monotonic reads</td><td>Once a user sees a version, later reads never go backward.</td><td>Progress, status, or feeds routed among replicas.</td></tr>
+                <tr><td>Eventual</td><td>Copies converge when updates stop, without a bound on immediate visibility.</td><td>Like counts, analytics, and reconstructable projections.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            “The system is eventually consistent” is too broad to guide engineering. State the promise at the
+            operation boundary. Payment creation may need uniqueness and read-your-writes; a recommendation count
+            may safely arrive later. Paying for the strongest guarantee everywhere wastes availability and latency.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="retry-title">
+          <p class="chapter-number">05 · Messages repeat</p>
+          <h2 id="retry-title">Retries must not repeat the business effect.</h2>
+          <p>
+            Networks fail ambiguously. A client times out after sending a payment request and cannot know whether the
+            server committed it. Retrying is necessary, but blindly retrying can charge twice. An
+            <strong>idempotency key</strong> gives every logical request a stable identity and lets the database make
+            duplicate attempts harmless.
+          </p>
+          <pre class="sql-block"><code>INSERT INTO payments (idempotency_key, amount)
+VALUES ($1, $2)
+ON CONFLICT (idempotency_key) DO NOTHING;</code></pre>
+          <p>
+            The key needs a unique constraint and a stored result or status that later retries can return. The rule
+            applies beyond HTTP: consumers, job runners, outbox relays, and migration workers all retry after uncertain
+            failure. “At least once” delivery becomes safe only when the effect is idempotent.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="saga-title">
+          <p class="chapter-number">06 · More than one authority</p>
+          <h2 id="saga-title">A saga replaces one global rollback with local repairs.</h2>
+          <p>
+            An order workflow may reserve inventory on one shard, charge a payment service, and schedule delivery
+            elsewhere. Holding locks across all three systems with a distributed transaction is fragile and can block
+            progress during failures. A <strong>saga</strong> commits local transactions one at a time and records how
+            to compensate if a later step fails.
+          </p>
+          <div class="saga-line" aria-label="Order saga with compensating actions">
+            <div><span>1</span><strong>Reserve stock</strong><small>undo: release</small></div><b>→</b>
+            <div><span>2</span><strong>Charge payment</strong><small>undo: refund</small></div><b>→</b>
+            <div><span>3</span><strong>Create shipment</strong><small>undo: cancel</small></div>
+          </div>
+          <p>
+            Compensation is a new business action, not time travel: a refund does not erase the fact that a charge
+            was briefly visible. Intermediate states must be modeled, exposed carefully, retried idempotently, and
+            reconciled when automation cannot finish.
+          </p>
+        </section>
+
+        <section class="reading-section final-matrix-section" aria-labelledby="matrix-title">
+          <p class="chapter-number">07 · The complete map</p>
+          <h2 id="matrix-title">Every scaling tool buys one thing and sends a bill.</h2>
+          <div class="table-wrap decision-matrix">
+            <table>
+              <caption>The database scaling decision matrix</caption>
+              <thead><tr><th>Tool</th><th>What it buys</th><th>What it costs</th></tr></thead>
+              <tbody>
+                <tr><td>Indexes</td><td>Fewer pages touched per query</td><td>Slower writes, storage, buffer-pool competition</td></tr>
+                <tr><td>Caching</td><td>Skip repeated database I/O and CPU</td><td>Staleness, invalidation, stampedes, cold starts</td></tr>
+                <tr><td>Replication</td><td>Read throughput and recovery copies</td><td>Lag, loss or reduced availability, failover coordination</td></tr>
+                <tr><td>Partitioning</td><td>Pruning, smaller maintenance units, cheap retention</td><td>Rigid key, multiplied indexes, planning overhead</td></tr>
+                <tr><td>Sharding</td><td>Independent write, storage, CPU, and memory capacity</td><td>Routing, fan-out, lost joins, distributed transactions, rebalancing</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Consistency is the bill beneath every copy and split. It appears as acknowledgement latency, stale reads,
+            retries, fencing, idempotency, compensation, and reconciliation. It cannot be removed; it can only be made
+            explicit and paid where the product truly needs it.
+          </p>
+          <div class="final-rules">
+            <article><span>01</span><strong>Keep hot data in memory.</strong><p>Storage trips dominate; understand the working set before changing architecture.</p></article>
+            <article><span>02</span><strong>Copy for reads. Split for writes.</strong><p>Replicas add readers; shards add independent writers.</p></article>
+            <article><span>03</span><strong>Shape and key must agree.</strong><p>Index prefix, partition key, and shard key help only queries that carry them.</p></article>
+            <article><span>04</span><strong>Diagnose before choosing.</strong><p>Most “we need sharding” stories still end at an index, a query, or a working-set fix.</p></article>
+          </div>
+          <blockquote class="dragon-line"><span>The Old Dragon</span>“Now you may split the realm—not because it sounds large, but because you can name the resource that ran out and the price you accept.”</blockquote>
+        </section>
+      </article>
+
+      <section class="reckoning section-shell final-reckoning" aria-labelledby="reckoning-title">
+        <div class="reckoning-intro"><p class="eyebrow">The Dragon’s Final Reckoning</p><h2 id="reckoning-title">Where we stand</h2><p>We began with a slow query and ended with a vocabulary for choosing the smallest architecture that solves the measured limit.</p></div>
+        <div class="standing-grid">
+          <article><span>What we learned</span><strong>Consistency is chosen per operation</strong><p>Isolation, freshness, availability, retries, and compensation are explicit product promises.</p></article>
+          <article><span>What we solved</span><strong>The first question at the gate</strong><p>We no longer ask “How do we shard?” before asking which resource has run out.</p></article>
+          <article><span>What remains</span><strong>Measure the real system</strong><p>Plans, buffer reads, cache misses, lag, shard load, and business invariants must confirm the design.</p></article>
+          <article><span>Our system now</span><strong>A justified architecture</strong><p>Every index, cache, replica, partition, or shard must earn its place with evidence.</p></article>
+        </div>
+        <div class="next-gate completion-gate">
+          <div><span>Journey complete · Eight lessons</span><h3>Return to the Map</h3><p>The realm is no longer mysterious. Revisit any decision from the beginning.</p></div>
+          <a class="button button-primary" href="../../index.html">Review the full journey <b aria-hidden="true">→</b></a>
+          <small>The Old Dragon waits where the measurements begin.</small>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer section-shell"><div><strong>Dungeons &amp; Databases</strong><p>A guided journey through database scaling.</p></div><div class="footer-links"><a href="../lesson-07-across-many-keeps/">← Previous lesson</a><a href="../../index.html">Return to the map</a></div></footer>
+  </body>
+</html>

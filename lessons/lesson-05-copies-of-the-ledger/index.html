@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Learn how PostgreSQL replication adds read capacity while introducing lag, consistency, and failover choices." />
+    <meta name="theme-color" content="#0b0d0c" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Copies of the Ledger · Dungeons &amp; Databases" />
+    <meta property="og:description" content="Copy for reads, then pay attention to lag, durability, and failover." />
+    <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-05-copies-of-the-ledger/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Copies of the Ledger · Dungeons &amp; Databases" />
+    <meta name="twitter:description" content="Replication turns capacity into a consistency problem." />
+    <title>Lesson 05 · Copies of the Ledger · Dungeons &amp; Databases</title>
+    <link rel="stylesheet" href="../../styles.css" />
+    <link rel="stylesheet" href="../lesson-shared.css" />
+    <link rel="stylesheet" href="../lesson-reading.css" />
+    <link rel="stylesheet" href="./lesson.css" />
+    <script src="../../site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson-content">Skip to the lesson</a>
+    <header class="site-header lesson-header">
+      <a class="brand" href="../../index.html" aria-label="Return to Dungeons and Databases home">
+        <span class="brand-mark" aria-hidden="true">D<span>&amp;</span>D</span>
+        <span class="brand-copy"><strong>Dungeons &amp; Databases</strong><small>Split the Realm</small></span>
+      </a>
+      <div class="header-actions">
+        <span class="lesson-badge">Lesson 05</span><span class="lesson-header-name">Copy for reads</span>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme"><span aria-hidden="true" data-theme-icon>☀</span><span data-theme-label>Light</span></button>
+      </div>
+    </header>
+
+    <main id="lesson-content">
+      <section class="lesson-hero section-shell">
+        <div class="lesson-hero-copy">
+          <p class="eyebrow">Lesson 05 · Copy for reads</p>
+          <h1>One truth. More places to read it.</h1>
+          <p>
+            A cache serves selected answers. Replication copies the database itself. Readers gain more machines,
+            while writers gain a new question: when is a change truly safe and visible everywhere?
+          </p>
+          <div class="lesson-tags" aria-label="Lesson concepts"><span>WAL</span><span>Replica lag</span><span>Read your writes</span><span>Failover</span></div>
+        </div>
+        <aside class="dragon-counsel compact" aria-labelledby="opening-counsel">
+          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
+          <div><p class="eyebrow">The Dragon’s Counsel</p><blockquote id="opening-counsel">“Copies widen the reading hall. They do not multiply the quill.”</blockquote><p>Replication buys read capacity by accepting coordination between copies.</p></div>
+        </aside>
+      </section>
+
+      <article class="lesson-reading">
+        <section class="reading-section" aria-labelledby="copy-title">
+          <p class="chapter-number">01 · The copy</p>
+          <h2 id="copy-title">A primary writes. Replicas replay.</h2>
+          <p>
+            In the common arrangement, one <strong>primary</strong> accepts changes. One or more
+            <strong>replicas</strong> receive those changes and apply them to their own copy. The application
+            continues sending writes to the primary but can spread suitable reads across the replicas.
+          </p>
+
+          <div class="replica-map" aria-label="Primary database sending changes to two read replicas">
+            <div class="replica-primary"><span>Writes + critical reads</span><strong>Primary</strong><small>Own CPU · RAM · storage</small></div>
+            <div class="replica-branch" aria-hidden="true"><i></i><i></i></div>
+            <div class="replica-readers">
+              <div><span>Reads</span><strong>Replica A</strong><small>Own CPU · RAM · storage</small></div>
+              <div><span>Reads</span><strong>Replica B</strong><small>Own CPU · RAM · storage</small></div>
+            </div>
+          </div>
+
+          <p>
+            Each replica owns another CPU, another buffer pool, and another storage device. That is real read
+            capacity. But all copies still contain the full data set, and every write still begins at one primary.
+            <mark class="quiet-highlight">Replication converts a capacity problem into a consistency problem.</mark>
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="wal-title">
+          <p class="chapter-number">02 · How the copy moves</p>
+          <h2 id="wal-title">Replicas follow the write-ahead log.</h2>
+          <p>
+            PostgreSQL records each change in the <strong>write-ahead log</strong>, or WAL, before altered table
+            pages reach durable storage. Replication ships that ordered change stream to another server. The
+            replica replays it against its own copy, rebuilding the same database state.
+          </p>
+          <p>
+            <strong>Physical replication</strong> sends storage-level changes and creates a close copy of the
+            whole cluster. <strong>Logical replication</strong> describes row-level changes for selected tables,
+            which allows a more selective or transformed subscriber. Both still have a sender, transport time,
+            and a receiver that must apply work.
+          </p>
+          <div class="flow-panel" aria-label="Write ahead log replication path">
+            <span class="flow-label">The replay path</span>
+            <div class="flow-line"><div class="flow-node">Primary commit<small>append ordered WAL</small></div><span class="flow-arrow">→</span><div class="flow-node">Network stream<small>ship WAL records</small></div><span class="flow-arrow">→</span><div class="flow-node">Replica replay<small>apply in order</small></div></div>
+          </div>
+          <p class="source-note">PostgreSQL documents physical streaming replication in <a href="https://www.postgresql.org/docs/current/warm-standby.html">Warm Standby</a> and table-level logical replication in <a href="https://www.postgresql.org/docs/current/logical-replication.html">Logical Replication</a>.</p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="ack-title">
+          <p class="chapter-number">03 · When may we answer?</p>
+          <h2 id="ack-title">The acknowledgement decides speed versus safety.</h2>
+          <p>
+            The application sees a successful write when PostgreSQL sends an acknowledgement. The question is
+            whether the primary may acknowledge after making the WAL durable on itself, or whether it must wait
+            for a replica too.
+          </p>
+          <div class="comparison-grid">
+            <article><span>Asynchronous</span><strong>Primary answers first</strong><p>Writes stay fast and survive replica trouble, but a primary failure may lose commits the replica had not received.</p></article>
+            <article><span>Synchronous</span><strong>Wait for a replica</strong><p>A promoted replica has acknowledged commits, but network or replica trouble can stall application writes.</p></article>
+          </div>
+          <p>
+            Synchronous replication can use a quorum such as <code>ANY 1</code>: wait for any one member of a
+            named replica set rather than one specific machine. It gives flexibility, not free certainty. Every
+            acknowledgement rule chooses a point among write latency, durability, and availability.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="lag-title">
+          <p class="chapter-number">04 · The distance behind</p>
+          <h2 id="lag-title">Replica lag is a queue, not a mysterious delay.</h2>
+          <p>
+            The primary produces WAL. The replica receives and replays it. If the primary produces changes faster
+            than the replica can apply them, unapplied WAL accumulates. Lag is the depth of that queue, measured in
+            bytes, log positions, or time.
+          </p>
+          <div class="lag-meter" aria-label="Replica replay queue">
+            <span>Already replayed</span><i class="lag-applied"></i><i class="lag-waiting"></i><strong>Waiting to replay</strong>
+          </div>
+          <p>
+            Slow replica storage, heavy reads competing for resources, network interruption, or a burst of writes
+            can all deepen the queue. Replay must preserve dependency order; adding read replicas does not make the
+            primary’s write stream disappear.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="ryw-title">
+          <p class="chapter-number">05 · The visible bug</p>
+          <h2 id="ryw-title">“I saved it, then it vanished.”</h2>
+          <p>
+            A customer changes their address. The write commits on the primary. The next page load is routed to a
+            replica that has not replayed that change, so the old address appears. The data was not lost; the
+            application violated the user’s expectation to <strong>read their own writes</strong>.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <caption>Three ways to preserve read-your-writes</caption>
+              <thead><tr><th>Technique</th><th>How it works</th><th>Tradeoff</th></tr></thead>
+              <tbody>
+                <tr><td>Sticky primary</td><td>After a write, keep that user’s reads on the primary for a short window.</td><td>Simple, but shifts more read load to the primary.</td></tr>
+                <tr><td>Log-position tracking</td><td>Record the commit LSN and use only a replica that has replayed at least that far.</td><td>Precise, but routing becomes smarter.</td></tr>
+                <tr><td>Entity routing</td><td>Read recently changed entities from the primary; send unrelated reads to replicas.</td><td>Targeted, but the application tracks affected data.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Not every read needs the same rule. A public feed can tolerate brief lag; a confirmation screen usually
+            cannot. Route by the consistency the operation requires, not by a blanket “all reads go to replicas.”
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="limits-title">
+          <p class="chapter-number">06 · What copies cannot buy</p>
+          <h2 id="limits-title">Read capacity rises. The write ceiling remains.</h2>
+          <p>
+            Replicas do not meaningfully increase write throughput: the primary still orders the writes, generates
+            WAL, and changes its pages. Replicas also do not shrink the working set, because each carries the full
+            database. They are copies for reads and recovery, not pieces of a divided data set.
+          </p>
+          <p>
+            Failover is not merely “point traffic at the other server.” The system must prove the primary is dead,
+            promote exactly one replacement, and prevent the old primary from accepting writes when it returns.
+            Without <strong>fencing</strong> or a consensus-backed authority, two primaries can diverge—a split brain.
+          </p>
+          <ul class="lesson-list">
+            <li>Decide how much acknowledged data may be lost.</li>
+            <li>Measure replay lag under both write load and replica read load.</li>
+            <li>Define which reads require the primary or a caught-up replica.</li>
+            <li>Practice promotion and prove the old primary is fenced.</li>
+          </ul>
+          <blockquote class="dragon-line"><span>The Old Dragon</span>“A copy is useful only when the realm agrees which page is newest—and which scribe may still write.”</blockquote>
+        </section>
+      </article>
+
+      <section class="reckoning section-shell" aria-labelledby="reckoning-title">
+        <div class="reckoning-intro"><p class="eyebrow">The Dragon’s Reckoning</p><h2 id="reckoning-title">Where we stand</h2><p>Reads can spread across machines. Writes still pass through one authority, and every copy may trail it.</p></div>
+        <div class="standing-grid">
+          <article><span>What we learned</span><strong>Replicas replay WAL</strong><p>Each copy adds CPU, RAM, and storage for reads while following the primary’s ordered changes.</p></article>
+          <article><span>What we solved</span><strong>Read-heavy pressure</strong><p>Suitable queries can leave the primary and use replica capacity.</p></article>
+          <article><span>What remains</span><strong>One full data set per machine</strong><p>Copies neither shrink the working set nor raise the primary’s write ceiling.</p></article>
+          <article><span>Our system now</span><strong>Primary · replicas · routing</strong><p>We added lag policy, acknowledgement choices, and a real failover procedure.</p></article>
+        </div>
+        <div class="next-gate">
+          <div><span>Next · Lesson 06</span><h3>Divide the Hoard</h3><p>Create physical boundaries inside one database, then see exactly what they can and cannot solve.</p></div>
+          <a class="button button-primary" href="../lesson-06-divide-the-hoard/">Continue the journey <b aria-hidden="true">→</b></a>
+          <small>The source document turns next to partitioning.</small>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer section-shell"><div><strong>Dungeons &amp; Databases</strong><p>A guided journey through database scaling.</p></div><div class="footer-links"><a href="../lesson-04-the-borrowed-memory/">← Previous lesson</a><a href="../../index.html">Return to the map</a></div></footer>
+  </body>
+</html>

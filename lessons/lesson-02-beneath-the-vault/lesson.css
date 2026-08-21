@@ -2,7 +2,7 @@
   margin: clamp(2rem, 5vw, 3.5rem) 0 0;
   padding: 1.25rem 0 0 1.4rem;
   border-top: 1px solid var(--line);
-  border-left: 3px solid var(--aqua);
+  border-left: 3px solid var(--jade);
   color: var(--text);
   font-family: var(--serif);
   font-size: clamp(1.35rem, 2.8vw, 1.85rem);
@@ -12,7 +12,7 @@
 .dragon-line span {
   display: block;
   margin-bottom: 0.45rem;
-  color: var(--aqua);
+  color: var(--jade);
   font-family: var(--mono);
   font-size: 0.72rem;
   font-style: normal;
@@ -35,7 +35,7 @@
 
 .chapter-number {
   margin: 0 0 1rem;
-  color: var(--aqua);
+  color: var(--jade);
   font-family: var(--mono);
   font-size: 0.78rem;
   font-weight: 800;
@@ -67,7 +67,7 @@
   padding-inline: 0.08em;
   background: linear-gradient(
     transparent 58%,
-    color-mix(in srgb, var(--aqua) 22%, transparent) 58%
+    color-mix(in srgb, var(--jade) 22%, transparent) 58%
   );
   color: inherit;
 }
@@ -80,7 +80,7 @@
 }
 
 .source-note a {
-  color: var(--aqua);
+  color: var(--jade);
   text-underline-offset: 0.2em;
 }
 
@@ -161,7 +161,7 @@ tbody tr:last-child > * {
 
 .rows-to-pages > p:first-child {
   margin: 0 0 0.8rem;
-  color: var(--aqua);
+  color: var(--jade);
   font-family: var(--mono);
   font-size: 0.7rem;
   font-weight: 800;
@@ -196,8 +196,8 @@ tbody tr:last-child > * {
 }
 
 .rows-to-pages .requested-page {
-  border-left: 2px solid var(--lime);
-  background: color-mix(in srgb, var(--lime) 7%, transparent);
+  border-left: 2px solid var(--moss);
+  background: color-mix(in srgb, var(--moss) 7%, transparent);
 }
 
 .rows-to-pages .visual-result {
@@ -244,7 +244,7 @@ tbody tr:last-child > * {
   margin: 1.1rem 0;
   padding: 1rem 0;
   border-block: 1px dashed var(--line);
-  color: var(--aqua);
+  color: var(--jade);
   font-family: var(--mono);
   font-size: clamp(0.8rem, 2vw, 1rem);
   text-align: center;
@@ -271,7 +271,7 @@ tbody tr:last-child > * {
 
 .path-label {
   margin: 0 0 0.7rem;
-  color: var(--aqua);
+  color: var(--jade);
   font-family: var(--mono);
   font-size: 0.72rem;
   font-weight: 800;
@@ -305,8 +305,8 @@ tbody tr:last-child > * {
 .reading-section > p.transition-callout {
   margin-top: 2rem;
   padding: 1.2rem 1.4rem;
-  border-left: 3px solid var(--lime);
-  background: color-mix(in srgb, var(--lime) 7%, transparent);
+  border-left: 3px solid var(--moss);
+  background: color-mix(in srgb, var(--moss) 7%, transparent);
   color: var(--text);
 }
 

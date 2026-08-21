@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="An interactive journey from database pages and partitions to sharding, guided by an old, wise dragon."
+      content="A guided journey from database pages and indexes to caching, replication, partitioning, sharding, and consistency."
     />
     <meta name="theme-color" content="#0b0d0c" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Dungeons &amp; Databases · Split the Realm" />
     <meta
       property="og:description"
-      content="Learn why databases partition and shard through an interactive journey guided by an old, wise dragon."
+      content="Learn how databases scale through a reading-first journey guided by an old, wise dragon."
     />
     <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/" />
     <meta property="og:image" content="https://shahbaaz12.github.io/dungeons-and-databases/public/og.png" />
@@ -22,7 +22,7 @@
     <meta name="twitter:title" content="Dungeons &amp; Databases · Split the Realm" />
     <meta
       name="twitter:description"
-      content="Learn why databases partition and shard through an interactive journey guided by an old, wise dragon."
+      content="Learn how databases scale through a reading-first journey guided by an old, wise dragon."
     />
     <meta name="twitter:image" content="https://shahbaaz12.github.io/dungeons-and-databases/public/og.png" />
     <title>Dungeons &amp; Databases · Split the Realm</title>
@@ -42,7 +42,7 @@
       </a>
 
       <div class="header-actions">
-        <span class="unlock-badge"><i aria-hidden="true"></i> Chapter 03 unlocked</span>
+        <span class="unlock-badge"><i aria-hidden="true"></i> All 08 lessons unlocked</span>
         <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme">
           <span aria-hidden="true" data-theme-icon>☀</span>
           <span data-theme-label>Light</span>
@@ -56,7 +56,8 @@
           <p class="eyebrow"><span>System design journey</span><span class="eyebrow-rule"></span></p>
           <h1>Before you split the realm, learn what is breaking.</h1>
           <p class="hero-lede">
-            Follow one growing database from its first slow query to partitions, replicas, and shards.
+            Follow one growing database from its first slow query through indexes, caches, replicas,
+            partitions, shards, and consistency choices.
             Every new piece of architecture must earn its place.
           </p>
 
@@ -135,7 +136,7 @@
           </div>
           <p>
             We begin with symptoms, descend into database internals, and return with enough knowledge to
-            choose between an index, a partition, a replica, and a shard.
+            choose between an index, a cache, a replica, a partition, and a shard.
           </p>
         </div>
 
@@ -173,55 +174,60 @@
               <span class="lesson-link">Explore lesson <b aria-hidden="true">→</b></span>
             </a>
           </li>
-          <li class="lesson-card">
-            <div>
+          <li class="lesson-card lesson-card-active">
+            <a href="./lessons/lesson-04-the-borrowed-memory/">
               <span class="lesson-number">04</span>
-              <span class="lesson-state">Sealed</span>
+              <span class="lesson-state">Unlocked</span>
+              <span class="lesson-kicker">Answers remembered</span>
+              <strong>The Borrowed Memory</strong>
+              <span class="lesson-summary">Use cache-aside safely and name the price of stale answers.</span>
+              <span class="lesson-concepts"><i>Cache-aside</i><i>Invalidation</i><i>Stampedes</i></span>
+              <span class="lesson-link">Explore lesson <b aria-hidden="true">→</b></span>
+            </a>
+          </li>
+          <li class="lesson-card lesson-card-active">
+            <a href="./lessons/lesson-05-copies-of-the-ledger/">
+              <span class="lesson-number">05</span>
+              <span class="lesson-state">Unlocked</span>
+              <span class="lesson-kicker">Copy for reads</span>
+              <strong>Copies of the Ledger</strong>
+              <span class="lesson-summary">Add read capacity, then handle lag, visibility, and failover.</span>
+              <span class="lesson-concepts"><i>WAL</i><i>Lag</i><i>Failover</i></span>
+              <span class="lesson-link">Explore lesson <b aria-hidden="true">→</b></span>
+            </a>
+          </li>
+          <li class="lesson-card lesson-card-active">
+            <a href="./lessons/lesson-06-divide-the-hoard/">
+              <span class="lesson-number">06</span>
+              <span class="lesson-state">Unlocked</span>
               <span class="lesson-kicker">Boundaries within</span>
               <strong>Divide the Hoard</strong>
-              <span class="lesson-summary">Create table partitions and watch the planner prune entire regions.</span>
-              <span class="lesson-concepts"><i>Range</i><i>Pruning</i><i>Keys</i></span>
-            </div>
+              <span class="lesson-summary">Prune physical pieces, simplify retention, and respect the one-machine ceiling.</span>
+              <span class="lesson-concepts"><i>Pruning</i><i>Retention</i><i>Ceilings</i></span>
+              <span class="lesson-link">Explore lesson <b aria-hidden="true">→</b></span>
+            </a>
           </li>
-          <li class="lesson-card">
-            <div>
-              <span class="lesson-number">05</span>
-              <span class="lesson-state">Sealed</span>
-              <span class="lesson-kicker">A clean boundary</span>
-              <strong>Seal the Old Chambers</strong>
-              <span class="lesson-summary">Compare row deletion with dropping one old partition.</span>
-              <span class="lesson-concepts"><i>Retention</i><i>Vacuum</i><i>Lifecycle</i></span>
-            </div>
-          </li>
-          <li class="lesson-card">
-            <div>
-              <span class="lesson-number">06</span>
-              <span class="lesson-state">Sealed</span>
-              <span class="lesson-kicker">The walls remain</span>
-              <strong>One Castle, Same Foundation</strong>
-              <span class="lesson-summary">Discover why local partitions do not add another machine.</span>
-              <span class="lesson-concepts"><i>Ceilings</i><i>Replicas</i><i>Writes</i></span>
-            </div>
-          </li>
-          <li class="lesson-card">
-            <div>
+          <li class="lesson-card lesson-card-active">
+            <a href="./lessons/lesson-07-across-many-keeps/">
               <span class="lesson-number">07</span>
-              <span class="lesson-state">Sealed</span>
+              <span class="lesson-state">Unlocked</span>
               <span class="lesson-kicker">Beyond one keep</span>
               <strong>Across Many Keeps</strong>
               <span class="lesson-summary">Route data across machines and choose a shard key that survives growth.</span>
-              <span class="lesson-concepts"><i>Routing</i><i>Distribution</i><i>Keys</i></span>
-            </div>
+              <span class="lesson-concepts"><i>Routing</i><i>Fan-out</i><i>Rebalancing</i></span>
+              <span class="lesson-link">Explore lesson <b aria-hidden="true">→</b></span>
+            </a>
           </li>
-          <li class="lesson-card">
-            <div>
+          <li class="lesson-card lesson-card-active">
+            <a href="./lessons/lesson-08-the-price-of-many-realms/">
               <span class="lesson-number">08</span>
-              <span class="lesson-state">Sealed</span>
+              <span class="lesson-state">Unlocked</span>
               <span class="lesson-kicker">The hidden bill</span>
               <strong>The Price of Many Realms</strong>
-              <span class="lesson-summary">Meet hotspots, fan-out, rebalancing, and cross-shard transactions.</span>
-              <span class="lesson-concepts"><i>Hotspots</i><i>Fan-out</i><i>Rebalance</i></span>
-            </div>
+              <span class="lesson-summary">Choose consistency per operation and compare every scaling tool.</span>
+              <span class="lesson-concepts"><i>Isolation</i><i>Idempotency</i><i>Sagas</i></span>
+              <span class="lesson-link">Explore lesson <b aria-hidden="true">→</b></span>
+            </a>
           </li>
         </ol>
       </section>

@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Learn PostgreSQL partitioning, pruning, partition keys, retention, maintenance, and the one-machine ceiling." />
+    <meta name="theme-color" content="#0b0d0c" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Divide the Hoard · Dungeons &amp; Databases" />
+    <meta property="og:description" content="Use partitions to skip regions and manage time-series data—without mistaking them for more machines." />
+    <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-06-divide-the-hoard/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Divide the Hoard · Dungeons &amp; Databases" />
+    <meta name="twitter:description" content="Partition for pruning and lifecycle boundaries, not write scale." />
+    <title>Lesson 06 · Divide the Hoard · Dungeons &amp; Databases</title>
+    <link rel="stylesheet" href="../../styles.css" />
+    <link rel="stylesheet" href="../lesson-shared.css" />
+    <link rel="stylesheet" href="../lesson-reading.css" />
+    <link rel="stylesheet" href="./lesson.css" />
+    <script src="../../site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson-content">Skip to the lesson</a>
+    <header class="site-header lesson-header">
+      <a class="brand" href="../../index.html" aria-label="Return to Dungeons and Databases home"><span class="brand-mark" aria-hidden="true">D<span>&amp;</span>D</span><span class="brand-copy"><strong>Dungeons &amp; Databases</strong><small>Split the Realm</small></span></a>
+      <div class="header-actions"><span class="lesson-badge">Lesson 06</span><span class="lesson-header-name">Boundaries within</span><button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme"><span aria-hidden="true" data-theme-icon>☀</span><span data-theme-label>Light</span></button></div>
+    </header>
+
+    <main id="lesson-content">
+      <section class="lesson-hero section-shell">
+        <div class="lesson-hero-copy">
+          <p class="eyebrow">Lesson 06 · Boundaries within</p>
+          <h1>Divide one table without leaving one machine.</h1>
+          <p>
+            Partitioning keeps one logical table for the application while PostgreSQL stores separate physical
+            pieces beneath it. The boundaries help only when the query and the data lifecycle follow them.
+          </p>
+          <div class="lesson-tags" aria-label="Lesson concepts"><span>Partition keys</span><span>Pruning</span><span>Retention</span><span>One-machine ceiling</span></div>
+        </div>
+        <aside class="dragon-counsel compact" aria-labelledby="opening-counsel">
+          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
+          <div><p class="eyebrow">The Dragon’s Counsel</p><blockquote id="opening-counsel">“A wall helps only when the traveler knows which gate to enter.”</blockquote><p>The partition key must match the questions and lifecycle of the data.</p></div>
+        </aside>
+      </section>
+
+      <article class="lesson-reading">
+        <section class="reading-section" aria-labelledby="meaning-title">
+          <p class="chapter-number">01 · What the split means</p>
+          <h2 id="meaning-title">One table above. Many physical tables below.</h2>
+          <p>
+            To the application, <code>orders</code> remains one table. Underneath, PostgreSQL can place August
+            orders in one partition, September orders in another, and so on. Inserts are routed to the matching
+            child. Queries still name the parent.
+          </p>
+          <div class="partition-strip" aria-label="One orders table divided into monthly partitions">
+            <div class="partition-parent">orders <small>logical table</small></div>
+            <span aria-hidden="true">→</span>
+            <div class="partition-piece cold">May<small>older</small></div>
+            <div class="partition-piece cold">Jun<small>older</small></div>
+            <div class="partition-piece warm">Jul<small>recent</small></div>
+            <div class="partition-piece hot">Aug<small>current</small></div>
+          </div>
+          <p>
+            Every piece still lives in the <strong>same PostgreSQL instance</strong>. They share the machine’s CPU,
+            buffer pool, WAL, storage bandwidth, and fsync path. This is organization inside one castle, not a new
+            castle.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="pruning-title">
+          <p class="chapter-number">02 · The reward</p>
+          <h2 id="pruning-title">A matching filter lets PostgreSQL ignore whole regions.</h2>
+          <p>
+            Suppose five years of monthly partitions give us sixty physical pieces. A query asks for the last seven
+            days and includes <code>created_at</code>, our partition key. PostgreSQL can prove that fifty-nine pieces
+            cannot contain the answer and plan only the current month. This is <strong>partition pruning</strong>.
+          </p>
+          <pre class="sql-block"><code>SELECT *
+FROM orders
+WHERE created_at &gt;= now() - interval '7 days';</code></pre>
+          <div class="pruning-row" aria-label="Only the August partition is opened">
+            <span class="pruned">May<small>pruned</small></span><span class="pruned">Jun<small>pruned</small></span><span class="pruned">Jul<small>pruned</small></span><span class="opened">Aug<small>opened</small></span>
+          </div>
+          <p>
+            Remove the time filter and PostgreSQL cannot know which partition to skip. It must consider all sixty,
+            often scan all sixty, and combine the results. More partitions then mean more planning work and more
+            indexes to inspect. <mark class="quiet-highlight">A partition helps only a query shaped around its key.</mark>
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="key-title">
+          <p class="chapter-number">03 · The key</p>
+          <h2 id="key-title">Choose the boundary the data already follows.</h2>
+          <div class="table-wrap">
+            <table>
+              <caption>Common partition strategies</caption>
+              <thead><tr><th>Strategy</th><th>Natural fit</th><th>Weakness</th></tr></thead>
+              <tbody>
+                <tr><td>Range</td><td>Time-series data, prices, ordered identifiers</td><td>The newest range often receives all current writes.</td></tr>
+                <tr><td>List</td><td>A small known set such as regions or statuses</td><td>New values need a destination and uneven groups stay uneven.</td></tr>
+                <tr><td>Hash</td><td>Evenly spread rows when range pruning is unimportant</td><td>Range queries cannot discard neighboring buckets.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            The key is a long-lived design choice. Queries must include it to prune, rows belong to a partition
+            because of it, and changing it later means moving data. PostgreSQL also requires every column of the
+            partition key to appear in a primary key or unique constraint declared on the partitioned table, because
+            separate partitions cannot otherwise enforce uniqueness across one another.
+          </p>
+          <pre class="sql-block"><code>CREATE TABLE orders (
+  id bigserial,
+  customer_id bigint NOT NULL,
+  created_at timestamptz NOT NULL,
+  total numeric,
+  PRIMARY KEY (id, created_at)
+) PARTITION BY RANGE (created_at);
+
+CREATE TABLE orders_2026_08 PARTITION OF orders
+FOR VALUES FROM ('2026-08-01') TO ('2026-09-01');</code></pre>
+          <p class="source-note">The definition and key rules follow PostgreSQL’s official <a href="https://www.postgresql.org/docs/current/ddl-partitioning.html">Table Partitioning</a> documentation.</p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="retention-title">
+          <p class="chapter-number">04 · The clean exit</p>
+          <h2 id="retention-title">Retention becomes a boundary operation.</h2>
+          <p>
+            Deleting a year of old orders row by row creates a year of work: each row is located, changed, logged
+            in WAL, and left as dead space until vacuum can reclaim it. Index entries must be cleaned too.
+          </p>
+          <p>
+            If that year occupies whole time partitions, retention can detach the old piece and drop it. The
+            database changes the table’s structure instead of visiting every row inside it.
+          </p>
+          <div class="comparison-grid">
+            <article><span>Row deletion</span><strong>Visit every old row</strong><p>Large WAL volume, dead tuples, index cleanup, and vacuum work follow the deletion.</p></article>
+            <article><span>Partition retirement</span><strong>Remove one boundary</strong><p>Detach for archive or inspection, then drop the old physical table.</p></article>
+          </div>
+          <pre class="sql-block"><code>ALTER TABLE orders DETACH PARTITION orders_2021_03;
+DROP TABLE orders_2021_03;</code></pre>
+          <p>
+            The same boundaries make maintenance smaller. PostgreSQL can <code>VACUUM</code>, <code>ANALYZE</code>,
+            or <code>REINDEX</code> one partition at a time instead of treating years of data as one maintenance unit.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="cost-title">
+          <p class="chapter-number">05 · The multiplied furniture</p>
+          <h2 id="cost-title">Every partition brings its own indexes and planning work.</h2>
+          <p>
+            A partitioned index is implemented as matching indexes on the child partitions. Sixty monthly tables
+            with three indexes mean many smaller structures to create, inspect, and maintain. That can be useful—the
+            hot index is smaller—but hundreds or thousands of pieces can make planning and schema changes expensive.
+          </p>
+          <p>
+            Partition size should follow useful operations, not an arbitrary urge to make pieces. A boundary is good
+            when it matches query pruning, retention, loading, or maintenance. “One partition per customer” may
+            create tens of thousands of tables without helping the actual query path.
+          </p>
+          <ul class="lesson-list">
+            <li>Verify common queries include the partition key.</li>
+            <li>Keep the number and size of partitions operationally manageable.</li>
+            <li>Create future partitions before data reaches their boundaries.</li>
+            <li>Measure pruning with <code>EXPLAIN</code>; do not assume it happened.</li>
+          </ul>
+        </section>
+
+        <section class="reading-section" aria-labelledby="ceiling-title">
+          <p class="chapter-number">06 · The unchanged ceiling</p>
+          <h2 id="ceiling-title">Partitioning does not add another machine.</h2>
+          <p>
+            Partitions can shrink the pages a query considers and turn retention into a cheap structural action.
+            They do not give PostgreSQL another CPU, another WAL stream, another fsync path, or another storage
+            device. A write-heavy system can still exhaust the same machine after the table is beautifully divided.
+          </p>
+          <p>
+            Yet partitioning is excellent preparation for sharding. The team has already chosen a routing key,
+            handled data movement, lived with queries that omit the key, and learned that cross-boundary operations
+            cost more. The next split keeps those lessons but places the pieces on different machines.
+          </p>
+          <blockquote class="dragon-line"><span>The Old Dragon</span>“You have drawn borders inside the vault. Do not mistake the ink for a second foundation.”</blockquote>
+        </section>
+      </article>
+
+      <section class="reckoning section-shell" aria-labelledby="reckoning-title">
+        <div class="reckoning-intro"><p class="eyebrow">The Dragon’s Reckoning</p><h2 id="reckoning-title">Where we stand</h2><p>The table now has useful physical boundaries. Queries and retention can skip work, while the machine’s resource ceiling remains unchanged.</p></div>
+        <div class="standing-grid">
+          <article><span>What we learned</span><strong>The key earns pruning</strong><p>A query must constrain the partition key before PostgreSQL can ignore entire pieces.</p></article>
+          <article><span>What we solved</span><strong>Time-shaped reads and retention</strong><p>Recent queries open fewer structures, and old months can leave as complete partitions.</p></article>
+          <article><span>What remains</span><strong>One WAL · one machine</strong><p>Partitioning organizes data but does not meaningfully raise write throughput.</p></article>
+          <article><span>Our system now</span><strong>One database · physical boundaries</strong><p>We gained pruning and lifecycle control while multiplying indexes and planning units.</p></article>
+        </div>
+        <div class="next-gate">
+          <div><span>Next · Lesson 07</span><h3>Across Many Keeps</h3><p>Move those boundaries onto separate machines and choose the key that routes every request.</p></div>
+          <a class="button button-primary" href="../lesson-07-across-many-keeps/">Continue the journey <b aria-hidden="true">→</b></a>
+          <small>The final source document begins with sharding.</small>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer section-shell"><div><strong>Dungeons &amp; Databases</strong><p>A guided journey through database scaling.</p></div><div class="footer-links"><a href="../lesson-05-copies-of-the-ledger/">← Previous lesson</a><a href="../../index.html">Return to the map</a></div></footer>
+  </body>
+</html>

@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Learn cache-aside reads, invalidation, stale data, stampedes, and cold starts before adding a cache." />
+    <meta name="theme-color" content="#0b0d0c" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="The Borrowed Memory · Dungeons &amp; Databases" />
+    <meta property="og:description" content="An external cache remembers answers—but makes correctness an application concern." />
+    <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-04-the-borrowed-memory/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="The Borrowed Memory · Dungeons &amp; Databases" />
+    <meta name="twitter:description" content="Learn when a cache buys headroom and what correctness it costs." />
+    <title>Lesson 04 · The Borrowed Memory · Dungeons &amp; Databases</title>
+    <link rel="stylesheet" href="../../styles.css" />
+    <link rel="stylesheet" href="../lesson-shared.css" />
+    <link rel="stylesheet" href="../lesson-reading.css" />
+    <link rel="stylesheet" href="./lesson.css" />
+    <script src="../../site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson-content">Skip to the lesson</a>
+    <header class="site-header lesson-header">
+      <a class="brand" href="../../index.html" aria-label="Return to Dungeons and Databases home">
+        <span class="brand-mark" aria-hidden="true">D<span>&amp;</span>D</span>
+        <span class="brand-copy"><strong>Dungeons &amp; Databases</strong><small>Split the Realm</small></span>
+      </a>
+      <div class="header-actions">
+        <span class="lesson-badge">Lesson 04</span>
+        <span class="lesson-header-name">Answers remembered</span>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme">
+          <span aria-hidden="true" data-theme-icon>☀</span><span data-theme-label>Light</span>
+        </button>
+      </div>
+    </header>
+
+    <main id="lesson-content">
+      <section class="lesson-hero section-shell">
+        <div class="lesson-hero-copy">
+          <p class="eyebrow">Lesson 04 · Answers remembered</p>
+          <h1>Keep the answer close—but know when it lies.</h1>
+          <p>
+            An index helps the database find an answer with fewer page reads. A cache can avoid the database
+            query entirely. That buys headroom, but it also moves freshness and failure into the application.
+          </p>
+          <div class="lesson-tags" aria-label="Lesson concepts">
+            <span>Cache-aside</span><span>Invalidation</span><span>Stampedes</span><span>Cold starts</span>
+          </div>
+        </div>
+        <aside class="dragon-counsel compact" aria-labelledby="opening-counsel">
+          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
+          <div>
+            <p class="eyebrow">The Dragon’s Counsel</p>
+            <blockquote id="opening-counsel">“A remembered answer is swift. An old answer is still wrong.”</blockquote>
+            <p>A cache is useful only when we can name what it saves and how stale it may become.</p>
+          </div>
+        </aside>
+      </section>
+
+      <article class="lesson-reading">
+        <section class="reading-section" aria-labelledby="second-buffer-title">
+          <p class="chapter-number">01 · Another memory</p>
+          <h2 id="second-buffer-title">An external cache is a second buffer pool.</h2>
+          <p>
+            PostgreSQL already keeps recently used <strong>pages</strong> in its buffer pool. An external cache,
+            such as Redis, keeps complete <strong>answers</strong> chosen by the application: a product record,
+            a customer dashboard, or the result of an expensive aggregation.
+          </p>
+          <p>
+            That distinction matters. A database buffer hit avoids storage, but PostgreSQL must still parse the
+            query, find pages, apply filters, join rows, and build the result. An application-cache hit can skip
+            both the storage trip <em>and</em> most of that database CPU work.
+          </p>
+
+          <div class="comparison-grid">
+            <article><span>Database buffer</span><strong>Remembers pages</strong><p>Managed by the database. Every query still enters PostgreSQL and does query work.</p></article>
+            <article><span>External cache</span><strong>Remembers answers</strong><p>Managed by the application. A hit can return without asking PostgreSQL at all.</p></article>
+          </div>
+
+          <p>
+            But the second memory does not know when the first one changes. The moment we cache an answer, the
+            application becomes responsible for keeping that answer acceptably fresh.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="read-path-title">
+          <p class="chapter-number">02 · The read path</p>
+          <h2 id="read-path-title">Look in the cache first. Ask the database only on a miss.</h2>
+          <p>
+            The common pattern is called <strong>cache-aside</strong>. The application, not the cache, decides
+            how a read should travel.
+          </p>
+
+          <div class="flow-panel" aria-label="Cache-aside read path">
+            <span class="flow-label">Cache-aside read</span>
+            <div class="flow-line">
+              <div class="flow-node">Application<small>asks for customer 42</small></div><span class="flow-arrow">→</span>
+              <div class="flow-node">Cache<small>look for customer:42</small></div><span class="flow-arrow">→</span>
+              <div class="flow-node">Database<small>only when missing</small></div>
+            </div>
+            <p class="flow-caption"><strong>Hit:</strong> return the cached answer. <strong>Miss:</strong> read from PostgreSQL, store the answer with an expiry, then return it.</p>
+          </div>
+
+          <p>
+            This is valuable only when requests repeat. Ten thousand people requesting the same product can share
+            one cached answer. Ten thousand people requesting ten thousand unrelated records produce ten thousand
+            misses and still reach the database.
+          </p>
+          <p class="transition-callout">
+            The cache hit rate is not the goal. The goal is a lower database query rate. A beautiful 99% number
+            can hide the fact that the remaining 1% still overwhelms PostgreSQL.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="write-path-title">
+          <p class="chapter-number">03 · The write path</p>
+          <h2 id="write-path-title">Write the truth, then forget the copy.</h2>
+          <p>
+            Suppose <code>customer:42</code> is cached and the customer changes their address. Updating only
+            PostgreSQL leaves the old address in the cache. Updating both sounds tidy, but two separate systems
+            cannot be changed in one simple atomic step: either update can fail while the other succeeds.
+          </p>
+          <p>
+            The safer default is: <strong>commit the database write, then delete the cache key</strong>. The next
+            reader misses, fetches the new truth from PostgreSQL, and repopulates the cache. We invalidate the copy
+            instead of trying to maintain two truths.
+          </p>
+
+          <div class="flow-panel" aria-label="Write then invalidate path">
+            <span class="flow-label">Write then invalidate</span>
+            <div class="flow-line compact-flow">
+              <div class="flow-node">Write PostgreSQL<small>the source of truth</small></div><span class="flow-arrow">→</span>
+              <div class="flow-node">Commit succeeds<small>the change is durable</small></div><span class="flow-arrow">→</span>
+              <div class="flow-node">Delete cache key<small>next read refills it</small></div>
+            </div>
+          </div>
+
+          <p>
+            A small race can still exist: another reader may refill the old value between the commit and the
+            deletion, or invalidation may fail. Expiry times, retries, versioned keys, or change streams can reduce
+            that window. They do not remove the central decision: <strong>how long may this answer be stale?</strong>
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="freshness-title">
+          <p class="chapter-number">04 · Fresh enough</p>
+          <h2 id="freshness-title">A time-to-live is a product promise.</h2>
+          <p>
+            A cache entry usually expires after a <strong>time-to-live</strong>, or TTL. A five-minute TTL says
+            more than “free this memory later.” It says the application may show information that is up to five
+            minutes old if invalidation fails or no invalidation exists.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <caption>Freshness should follow the operation</caption>
+              <thead><tr><th>Answer</th><th>Possible policy</th><th>Reason</th></tr></thead>
+              <tbody>
+                <tr><td>Public product description</td><td>Minutes of TTL</td><td>A brief delay is usually harmless.</td></tr>
+                <tr><td>Inventory available to sell</td><td>Short TTL plus validation</td><td>Staleness can oversell stock.</td></tr>
+                <tr><td>Account balance before payment</td><td>Read the authority</td><td>Correctness matters more than avoiding one query.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p>
+            There is no universal TTL. “Fresh enough” belongs to the business action. A product page, an account
+            balance, and a fraud decision should not inherit the same consistency merely because they share Redis.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="stampede-title">
+          <p class="chapter-number">05 · The empty shelf</p>
+          <h2 id="stampede-title">Popular misses arrive as a crowd.</h2>
+          <p>
+            Imagine one popular key receiving 20,000 reads per second. Its TTL ends. All 20,000 requests miss at
+            nearly the same moment, and all try to rebuild the same answer from PostgreSQL. This is a
+            <strong>cache stampede</strong>: the item is hottest precisely when its protection disappears.
+          </p>
+          <p>
+            <strong>Single-flight</strong> allows one request to rebuild the value while the others wait or use a
+            slightly stale copy. Early refresh and background refresh spread the work before the hard expiry.
+          </p>
+
+          <div class="comparison-grid">
+            <article><span>One expired key</span><strong>Without protection</strong><p>Every miss reaches PostgreSQL and repeats the same expensive query.</p></article>
+            <article><span>One builder</span><strong>With single-flight</strong><p>One request refreshes the answer; the rest wait or temporarily use the old value.</p></article>
+          </div>
+
+          <p>
+            A cold start is the same danger at system scale. After a restart or full cache flush, the hit rate is
+            zero. If the database survives only while the cache is warm, the cache has become a hidden single point
+            of overload. Provision and test PostgreSQL for that recovery path.
+          </p>
+          <p class="transition-callout">
+            A 99.9% hit rate can tempt a team to size the database for the remaining 0.1%. The better the cache
+            becomes, the more violent a total miss can be.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="when-title">
+          <p class="chapter-number">06 · Earn the cache</p>
+          <h2 id="when-title">Do not add another memory when PostgreSQL already remembers.</h2>
+          <p>
+            If the active pages already fit comfortably in the database buffer pool and the query is inexpensive,
+            an external cache may be slower than a local RAM hit: it adds a network hop, serialization, another
+            service to operate, and invalidation bugs. Caching is justified when it removes repeated, measurable
+            database work—not merely because the application reads often.
+          </p>
+          <ul class="lesson-list">
+            <li>Measure the database query rate and CPU saved by cache hits.</li>
+            <li>Choose keys that repeat enough to be useful.</li>
+            <li>State the acceptable staleness for every cached answer.</li>
+            <li>Test stampedes, cache loss, and recovery at a 0% hit rate.</li>
+          </ul>
+          <blockquote class="dragon-line"><span>The Old Dragon</span>“Borrow memory only after naming the truth it may forget.”</blockquote>
+        </section>
+      </article>
+
+      <section class="reckoning section-shell" aria-labelledby="reckoning-title">
+        <div class="reckoning-intro">
+          <p class="eyebrow">The Dragon’s Reckoning</p><h2 id="reckoning-title">Where we stand</h2>
+          <p>The database can now avoid repeated reads, but every cached answer carries a freshness contract and a failure path.</p>
+        </div>
+        <div class="standing-grid">
+          <article><span>What we learned</span><strong>A cache remembers answers</strong><p>Unlike the database buffer pool, a hit can skip database I/O and query CPU together.</p></article>
+          <article><span>What we solved</span><strong>Repeated expensive reads</strong><p>Cache-aside sends misses to PostgreSQL and lets later requests reuse the result.</p></article>
+          <article><span>What remains</span><strong>One database serves every write</strong><p>Caching removes read work. It does not create a second durable authority.</p></article>
+          <article><span>Our system now</span><strong>Database · cache · invalidation</strong><p>We bought read headroom and accepted staleness, stampede, and cold-start responsibilities.</p></article>
+        </div>
+        <div class="next-gate">
+          <div><span>Next · Lesson 05</span><h3>Copies of the Ledger</h3><p>Add database copies for read capacity, then face lag and failover.</p></div>
+          <a class="button button-primary" href="../lesson-05-copies-of-the-ledger/">Continue the journey <b aria-hidden="true">→</b></a>
+          <small>The next lesson follows the source document into replication.</small>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer section-shell">
+      <div><strong>Dungeons &amp; Databases</strong><p>A guided journey through database scaling.</p></div>
+      <div class="footer-links"><a href="../lesson-03-sharpen-before-you-split/">← Previous lesson</a><a href="../../index.html">Return to the map</a></div>
+    </footer>
+  </body>
+</html>

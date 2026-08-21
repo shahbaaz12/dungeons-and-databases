@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Learn shard keys, routing, fan-out, hot tenants, global IDs, and safe rebalancing across database machines." />
+    <meta name="theme-color" content="#0b0d0c" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Across Many Keeps · Dungeons &amp; Databases" />
+    <meta property="og:description" content="Sharding raises the write ceiling by dividing data—and hands routing and coordination to the application." />
+    <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-07-across-many-keeps/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Across Many Keeps · Dungeons &amp; Databases" />
+    <meta name="twitter:description" content="Choose a shard key and learn the cost of many database machines." />
+    <title>Lesson 07 · Across Many Keeps · Dungeons &amp; Databases</title>
+    <link rel="stylesheet" href="../../styles.css" />
+    <link rel="stylesheet" href="../lesson-shared.css" />
+    <link rel="stylesheet" href="../lesson-reading.css" />
+    <link rel="stylesheet" href="./lesson.css" />
+    <script src="../../site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson-content">Skip to the lesson</a>
+    <header class="site-header lesson-header">
+      <a class="brand" href="../../index.html" aria-label="Return to Dungeons and Databases home"><span class="brand-mark" aria-hidden="true">D<span>&amp;</span>D</span><span class="brand-copy"><strong>Dungeons &amp; Databases</strong><small>Split the Realm</small></span></a>
+      <div class="header-actions"><span class="lesson-badge">Lesson 07</span><span class="lesson-header-name">Beyond one keep</span><button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme"><span aria-hidden="true" data-theme-icon>☀</span><span data-theme-label>Light</span></button></div>
+    </header>
+
+    <main id="lesson-content">
+      <section class="lesson-hero section-shell">
+        <div class="lesson-hero-copy">
+          <p class="eyebrow">Lesson 07 · Beyond one keep</p>
+          <h1>Split the data. Inherit the map.</h1>
+          <p>
+            Sharding places different rows on different database machines. It is the first tool in this journey
+            that creates independent write paths—and the first that makes routing part of every query.
+          </p>
+          <div class="lesson-tags" aria-label="Lesson concepts"><span>Shard keys</span><span>Routing</span><span>Fan-out</span><span>Rebalancing</span></div>
+        </div>
+        <aside class="dragon-counsel compact" aria-labelledby="opening-counsel">
+          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
+          <div><p class="eyebrow">The Dragon’s Counsel</p><blockquote id="opening-counsel">“More vaults mean more foundations—and a map for every key.”</blockquote><p>The write ceiling rises because responsibility moves into the application.</p></div>
+        </aside>
+      </section>
+
+      <article class="lesson-reading">
+        <section class="reading-section" aria-labelledby="real-split-title">
+          <p class="chapter-number">01 · The real split</p>
+          <h2 id="real-split-title">Each shard owns different data and different resources.</h2>
+          <p>
+            A replica copies the whole database. A partition divides a table but remains on one instance. A
+            <strong>shard</strong> places one part of the data on one database machine and another part elsewhere.
+            Shard A and Shard B have separate CPUs, buffer pools, storage devices, WAL streams, and write locks.
+          </p>
+          <div class="shard-map" aria-label="Application router directing three customers to three shards">
+            <div class="shard-router"><span>Application</span><strong>Shard router</strong><small>reads the key</small></div>
+            <div class="shard-lines" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="shard-nodes"><div><span>Customers A–H</span><strong>Shard 1</strong></div><div><span>Customers I–Q</span><strong>Shard 2</strong></div><div><span>Customers R–Z</span><strong>Shard 3</strong></div></div>
+          </div>
+          <p>
+            Writes for different shards can now proceed on different machines. This is why sharding meaningfully
+            raises the write ceiling. The cost is equally direct: the application must know where data lives, and
+            operations that once relied on one database boundary may cross several independent systems.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="key-title">
+          <p class="chapter-number">02 · The irreversible question</p>
+          <h2 id="key-title">Which value decides where every row lives?</h2>
+          <p>
+            The <strong>shard key</strong> is the input to the routing decision. A strong key has high cardinality,
+            spreads load evenly, and appears naturally in common queries. Those goals often pull against each other.
+          </p>
+          <div class="key-triad" aria-label="Three qualities of a shard key">
+            <article><span>01</span><strong>Many values</strong><p>Enough distinct keys to divide the data into useful pieces.</p></article>
+            <article><span>02</span><strong>Even work</strong><p>No single value should own most rows or most traffic.</p></article>
+            <article><span>03</span><strong>Known at query time</strong><p>Requests should arrive with the key so they can reach one shard.</p></article>
+          </div>
+          <p>
+            <code>customer_id</code> is often a good fit for a multi-tenant orders system because most operations
+            already belong to one customer. A timestamp may appear in every query but send all new writes to the
+            newest range. Random order IDs distribute well but make “all orders for this customer” a multi-shard
+            request. <mark class="quiet-highlight">A shard key is a query-design decision, not just a distribution formula.</mark>
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="routing-title">
+          <p class="chapter-number">03 · The map</p>
+          <h2 id="routing-title">Routing decides both balance and movement.</h2>
+          <div class="table-wrap">
+            <table>
+              <caption>Common ways to turn a key into a shard</caption>
+              <thead><tr><th>Strategy</th><th>Strength</th><th>Cost</th></tr></thead>
+              <tbody>
+                <tr><td>Range</td><td>Range queries stay together and routing is easy to explain.</td><td>Sequential keys create a hot newest range.</td></tr>
+                <tr><td>Modulo hash</td><td><code>hash(key) % N</code> distributes stable keys simply.</td><td>Changing four shards to five remaps roughly 75% of keys.</td></tr>
+                <tr><td>Consistent hash</td><td>Adding a shard moves roughly <code>1/N</code> of the key space.</td><td>Virtual nodes are needed to smooth uneven ranges and machine sizes.</td></tr>
+                <tr><td>Directory</td><td>A lookup table can move one tenant or give it a dedicated shard.</td><td>The directory becomes critical routing infrastructure.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            There is no universal winner. Stable uniform tenants may fit consistent hashing. A SaaS product with a
+            few enormous customers may need a directory so one tenant can be moved deliberately. The design must
+            explain how routing information is cached, updated, recovered, and kept consistent during movement.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="query-title">
+          <p class="chapter-number">04 · What one database used to do</p>
+          <h2 id="query-title">Queries without the key become distributed work.</h2>
+          <p>
+            If a request includes the shard key, the router can send it to one machine. If it asks for “the newest
+            100 orders in the whole system” without a key, every shard may need to search locally, return candidates,
+            and let the application merge and sort them. That is <strong>scatter-gather</strong>.
+          </p>
+          <p>
+            Cross-shard joins no longer look like ordinary SQL joins. Teams typically avoid them by keeping related
+            rows on the same shard, duplicating small reference data, denormalizing a read model, or joining results
+            in application code. Cross-shard transactions require coordination such as two-phase commit, where one
+            failed participant can leave resources locked while everyone waits for a decision.
+          </p>
+          <div class="comparison-grid">
+            <article><span>Key present</span><strong>One route · one database</strong><p>Local joins, local transactions, and predictable latency remain possible.</p></article>
+            <article><span>Key absent</span><strong>Fan out · merge results</strong><p>Cost and tail latency grow with the number of shards contacted.</p></article>
+          </div>
+          <p>
+            Even IDs become architectural. Random UUIDv4 values avoid a central generator but scatter inserts
+            through B-tree leaves. UUIDv7, ULID, and Snowflake-style identifiers keep time order while remaining
+            globally unique enough for distributed creation.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="tail-title">
+          <p class="chapter-number">05 · Balance is more than row count</p>
+          <h2 id="tail-title">One hot tenant can own an otherwise even shard.</h2>
+          <p>
+            A hash can spread keys evenly while traffic remains uneven. One enterprise tenant may generate more
+            work than ten thousand small tenants. That tenant can saturate its shard while the others remain quiet.
+            It may need a dedicated shard or a second-level split within the tenant.
+          </p>
+          <p>
+            Fan-out magnifies slow tails too. If each shard has a 99% chance of responding within the target, a
+            request waiting for 100 shards has only <code>0.99¹⁰⁰ ≈ 36.6%</code> chance that every shard stays within
+            it. In other words, roughly 63% of those requests encounter at least one slow shard.
+          </p>
+          <div class="tail-math" aria-label="Tail latency probability across 100 shards"><span>Per-shard success</span><strong>99%</strong><i>raised across 100 shards</i><span>All within target</span><strong>36.6%</strong></div>
+          <p>
+            This is why a shard count is not merely a capacity number. Every added destination changes the cost of
+            global queries, observability, backups, migrations, and incident response.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="move-title">
+          <p class="chapter-number">06 · Moving a live boundary</p>
+          <h2 id="move-title">Rebalancing is a migration, not a copy command.</h2>
+          <p>
+            Eventually a shard grows too large or one tenant must move. Copying its old rows is only the beginning,
+            because new writes continue during the copy. A safe migration usually establishes a period in which the
+            old and new locations cannot silently diverge.
+          </p>
+          <ol class="migration-steps">
+            <li><span>01</span><div><strong>Prepare and dual-write</strong><p>Create the destination and ensure new changes reach both locations or enter a replayable change stream.</p></div></li>
+            <li><span>02</span><div><strong>Backfill history</strong><p>Copy existing rows in bounded batches while ordinary traffic continues.</p></div></li>
+            <li><span>03</span><div><strong>Verify</strong><p>Compare counts, checksums, and recent writes until the destination is demonstrably complete.</p></div></li>
+            <li><span>04</span><div><strong>Cut over and clean up</strong><p>Change the route, watch errors and lag, then remove the old copy only after the rollback window closes.</p></div></li>
+          </ol>
+        </section>
+
+        <section class="reading-section" aria-labelledby="last-title">
+          <p class="chapter-number">07 · The final threshold</p>
+          <h2 id="last-title">Shard only after the single-machine remedies earn their limits.</h2>
+          <p>
+            First fix the access path. Then consider caching repeated answers, replicas for read load, partitions for
+            pruning and lifecycle, and a larger machine when it buys simple headroom. Sharding is justified when the
+            measured limit is truly the write, storage, or working-set capacity of one database—and the application
+            is ready to own routing and distributed operations.
+          </p>
+          <blockquote class="dragon-line"><span>The Old Dragon</span>“Split last. Once every question needs a map, simplicity itself has become the treasure you spent.”</blockquote>
+        </section>
+      </article>
+
+      <section class="reckoning section-shell" aria-labelledby="reckoning-title">
+        <div class="reckoning-intro"><p class="eyebrow">The Dragon’s Reckoning</p><h2 id="reckoning-title">Where we stand</h2><p>Data and writes now span machines. Capacity rose, but joins, transactions, routing, hot tenants, and movement became application concerns.</p></div>
+        <div class="standing-grid">
+          <article><span>What we learned</span><strong>The key is the architecture</strong><p>It decides placement, single-shard queries, hot spots, and what must fan out.</p></article>
+          <article><span>What we solved</span><strong>The one-machine write ceiling</strong><p>Independent shards provide independent WAL, storage, CPU, and buffer pools.</p></article>
+          <article><span>What remains</span><strong>Copies can disagree</strong><p>Retries, failures, and multi-step operations now cross independent authorities.</p></article>
+          <article><span>Our system now</span><strong>Router · shards · migrations</strong><p>Every request carries placement and consistency consequences.</p></article>
+        </div>
+        <div class="next-gate">
+          <div><span>Next · Lesson 08</span><h3>The Price of Many Realms</h3><p>Choose consistency per operation and finish with the full scaling decision matrix.</p></div>
+          <a class="button button-primary" href="../lesson-08-the-price-of-many-realms/">Enter the final lesson <b aria-hidden="true">→</b></a>
+          <small>The source document closes by naming the consistency bill.</small>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer section-shell"><div><strong>Dungeons &amp; Databases</strong><p>A guided journey through database scaling.</p></div><div class="footer-links"><a href="../lesson-06-divide-the-hoard/">← Previous lesson</a><a href="../../index.html">Return to the map</a></div></footer>
+  </body>
+</html>
