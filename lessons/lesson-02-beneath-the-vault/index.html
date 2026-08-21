@@ -45,16 +45,28 @@
 
     <main id="lesson-content">
       <section class="lesson-hero section-shell">
-        <p class="eyebrow">Lesson 02 · Beneath the Vault</p>
-        <h1>The database serves data from RAM.</h1>
-        <p class="hero-lede">
-          Storage preserves the kingdom. Memory answers its questions. To understand why a query is fast
-          one moment and slow the next, we must follow a single page between the two.
-        </p>
-        <blockquote class="dragon-line">
-          <span>The Old Dragon</span>
-          “The row may sleep on disk, young keeper. It must wake in memory before it can speak.”
-        </blockquote>
+        <div class="lesson-hero-copy">
+          <p class="eyebrow">Lesson 02 · Beneath the Vault</p>
+          <h1>The database serves data from RAM.</h1>
+          <p>
+            Storage preserves the kingdom. Memory answers its questions. To understand why a query is fast
+            one moment and slow the next, we must follow a single page between the two.
+          </p>
+          <div class="lesson-tags" aria-label="Lesson concepts">
+            <span>Pages</span><span>Buffer pool</span><span>Working set</span><span>Eviction</span>
+          </div>
+        </div>
+
+        <aside class="dragon-counsel compact" aria-labelledby="opening-counsel">
+          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
+          <div>
+            <p class="eyebrow">The Dragon’s Counsel</p>
+            <blockquote id="opening-counsel">
+              “The row may sleep on disk, young keeper. It must wake in memory before it can speak.”
+            </blockquote>
+            <p>Every answer begins with a page in RAM.</p>
+          </div>
+        </aside>
       </section>
 
       <article class="lesson-reading">
@@ -231,27 +243,34 @@
           </blockquote>
         </section>
 
-        <section class="where-we-stand" aria-labelledby="standing-title">
-          <p class="chapter-number">The Dragon’s Reckoning</p>
-          <h2 id="standing-title">Where we stand</h2>
-          <dl>
-            <div><dt>Every answer</dt><dd>is read from a page in RAM.</dd></div>
-            <div><dt>A buffer hit</dt><dd>uses a page that is already waiting in the buffer.</dd></div>
-            <div><dt>A buffer miss</dt><dd>loads a page, may evict another, and then serves from RAM.</dd></div>
-            <div><dt>The working set</dt><dd>is the set of pages repeated traffic keeps hot.</dd></div>
-          </dl>
-        </section>
+      </article>
 
-        <section class="next-gate" aria-labelledby="next-title">
+      <section class="reckoning section-shell" aria-labelledby="standing-title">
+        <div class="reckoning-intro">
+          <p class="eyebrow">The Dragon’s Reckoning</p>
+          <h2 id="standing-title">Where we stand</h2>
+          <p>
+            The database is still one machine, but its changing speed is no longer mysterious. We can now
+            explain every read as a page already waiting in RAM—or a page that must first be fetched.
+          </p>
+        </div>
+
+        <div class="standing-grid">
+          <article><span>What we learned</span><strong>Every answer begins in RAM</strong><p>PostgreSQL reads rows from pages in the buffer, never directly from storage.</p></article>
+          <article><span>What we solved</span><strong>The mysterious latency swing</strong><p>A buffer hit avoids the storage trip; a miss must fetch the page before the row can be read.</p></article>
+          <article><span>What remains</span><strong>Why touch so many pages?</strong><p>The next lesson changes the access path so the database can ignore most of the table.</p></article>
+          <article><span>Our system now</span><strong>One database · visible memory</strong><p>The architecture is unchanged, but we can see its working set, hits, misses, and eviction pressure.</p></article>
+        </div>
+
+        <div class="next-gate" aria-labelledby="next-title">
           <div>
             <span>Next · Lesson 03</span>
-            <h2 id="next-title">Sharpen Before You Split</h2>
+            <h3 id="next-title">Sharpen Before You Split</h3>
             <p>Before adding machines, we will ask why the database had to touch so many pages at all.</p>
           </div>
-          <button type="button" disabled aria-describedby="next-note">The next gate opens soon</button>
-          <small id="next-note">Lesson 03 will be the next milestone.</small>
-        </section>
-      </article>
+          <a class="button button-primary" href="../lesson-03-sharpen-before-you-split/">Enter the next vault →</a>
+        </div>
+      </section>
     </main>
 
     <footer class="site-footer section-shell">

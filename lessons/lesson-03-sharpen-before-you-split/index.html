@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Learn how PostgreSQL indexes change the access path, reduce page reads, and add write cost."
+    />
+    <meta name="theme-color" content="#0b0d0c" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Sharpen Before You Split · Dungeons &amp; Databases" />
+    <meta property="og:description" content="Count the pages an index saves before reaching for partitions or shards." />
+    <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-03-sharpen-before-you-split/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Sharpen Before You Split · Dungeons &amp; Databases" />
+    <meta name="twitter:description" content="Count the pages an index saves before reaching for partitions or shards." />
+    <title>Lesson 03 · Sharpen Before You Split · Dungeons &amp; Databases</title>
+    <link rel="stylesheet" href="../../styles.css" />
+    <link rel="stylesheet" href="../lesson-shared.css" />
+    <link rel="stylesheet" href="./lesson.css" />
+    <script src="../../site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson-content">Skip to the lesson</a>
+
+    <header class="site-header lesson-header">
+      <a class="brand" href="../../index.html" aria-label="Return to Dungeons and Databases home">
+        <span class="brand-mark" aria-hidden="true">D<span>&amp;</span>D</span>
+        <span class="brand-copy">
+          <strong>Dungeons &amp; Databases</strong>
+          <small>Split the Realm</small>
+        </span>
+      </a>
+
+      <div class="header-actions">
+        <span class="lesson-badge">Lesson 03</span>
+        <span class="lesson-header-name">The cheaper answer</span>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme">
+          <span aria-hidden="true" data-theme-icon>☀</span>
+          <span data-theme-label>Light</span>
+        </button>
+      </div>
+    </header>
+
+    <main id="lesson-content">
+      <section class="lesson-hero section-shell">
+        <div class="lesson-hero-copy">
+          <p class="eyebrow">Lesson 03 · The cheaper answer</p>
+          <h1>Touch fewer pages before adding machines.</h1>
+          <p>
+            The query asks for fifty orders. The database should not search a million pages to find them.
+            Before we split the realm, we will give PostgreSQL a shorter path through the vault.
+          </p>
+          <div class="lesson-tags" aria-label="Lesson concepts">
+            <span>Access paths</span><span>B-tree indexes</span><span>Query plans</span><span>Write cost</span>
+          </div>
+        </div>
+
+        <aside class="dragon-counsel compact" aria-labelledby="opening-counsel">
+          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
+          <div>
+            <p class="eyebrow">The Dragon’s Counsel</p>
+            <blockquote id="opening-counsel">
+              “Before building more vaults, teach the scribe where to look.”
+            </blockquote>
+            <p>The cheapest page is the page the query never needs to touch.</p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="lesson-section section-shell" aria-labelledby="question-title">
+        <div class="concept-heading">
+          <div>
+            <p class="eyebrow">01 · Begin with the page count</p>
+            <h2 id="question-title">How many pages did the query touch?</h2>
+          </div>
+          <p>
+            Lesson 02 taught us that every required page must be present in RAM. Now we reduce the number of
+            pages required in the first place.
+          </p>
+        </div>
+
+        <div class="query-example">
+          <div>
+            <span>The request</span>
+            <strong>Show one customer’s 50 newest orders.</strong>
+          </div>
+          <pre><code>SELECT *
+FROM orders
+WHERE customer_id = 84217
+ORDER BY created_at DESC
+LIMIT 50;</code></pre>
+        </div>
+
+        <p class="lesson-copy">
+          Imagine that <code>orders</code> contains 10 million rows. At our simplified eight rows per page,
+          the table occupies about <strong>1.25 million pages</strong>. Returning only 50 rows does not make the
+          query cheap if PostgreSQL must inspect most of those pages to locate them.
+        </p>
+
+        <div class="access-comparison">
+          <article>
+            <span>Without a useful index</span>
+            <h3>Search the table</h3>
+            <p>A sequential scan examines page after page and rejects rows belonging to other customers.</p>
+            <strong>Potential journey · 1,250,000 table pages</strong>
+          </article>
+          <article class="preferred-path">
+            <span>With a useful index</span>
+            <h3>Follow the guide</h3>
+            <p>An index leads PostgreSQL to the matching entries, which then point to the required table rows.</p>
+            <strong>Illustrative journey · about 53 pages</strong>
+          </article>
+        </div>
+
+        <p class="precision-note">
+          These counts are a teaching model. Real plans depend on row size, cached pages, data distribution,
+          table statistics, clustering, and the columns the query returns.
+        </p>
+      </section>
+
+      <section class="lesson-section index-section" aria-labelledby="index-title">
+        <div class="section-shell">
+          <div class="concept-heading">
+            <div>
+              <p class="eyebrow">02 · The ordered guide</p>
+              <h2 id="index-title">An index is a smaller path to the rows.</h2>
+            </div>
+            <p>
+              Like the index at the back of a book, a database index stores ordered keys and directions to
+              the full records. PostgreSQL’s default index type is a B-tree.
+            </p>
+          </div>
+
+          <div class="index-explainer">
+            <div class="index-copy">
+              <p>
+                A B-tree starts with a small root page, narrows through branch pages, and reaches a leaf page
+                containing matching index entries. The tree stays shallow, so a large index can often be
+                navigated with only a few page visits.
+              </p>
+              <p>
+                For our query, the index should begin with <code>customer_id</code>, because that is the equality
+                filter. Within each customer, <code>created_at DESC</code> keeps newest orders first. PostgreSQL
+                can find the customer, read in the requested order, and stop after 50 entries.
+              </p>
+              <pre class="sql-block"><code>CREATE INDEX orders_customer_created_idx
+ON orders (customer_id, created_at DESC);</code></pre>
+            </div>
+
+            <aside class="btree-guide" aria-label="Simplified B-tree path to customer 84217">
+              <p>One search path</p>
+              <div class="tree-level"><span>Root page</span><strong>Which range?</strong></div>
+              <i aria-hidden="true">↓</i>
+              <div class="tree-level"><span>Branch page</span><strong>Customers 80k–90k</strong></div>
+              <i aria-hidden="true">↓</i>
+              <div class="tree-level leaf-level"><span>Leaf page</span><strong>Customer 84217 · newest first</strong></div>
+              <i aria-hidden="true">↓</i>
+              <div class="tree-result"><span>Table pages</span><strong>Fetch the 50 rows</strong></div>
+            </aside>
+          </div>
+
+          <p class="source-note">
+            PostgreSQL notes that multicolumn B-tree indexes are most efficient when query constraints use
+            their leading columns. See the official
+            <a href="https://www.postgresql.org/docs/current/indexes-multicolumn.html">multicolumn-index documentation</a>.
+          </p>
+        </div>
+      </section>
+
+      <section class="lesson-section section-shell" aria-labelledby="budget-title">
+        <div class="concept-heading">
+          <div>
+            <p class="eyebrow">03 · Count the new journey</p>
+            <h2 id="budget-title">The index changes the page budget.</h2>
+          </div>
+          <p>
+            The index does not make pages free. It replaces a broad search with a short tree walk and a focused
+            set of table-page visits.
+          </p>
+        </div>
+
+        <div class="page-budget">
+          <div class="budget-before">
+            <span>Broad search</span>
+            <strong>1,250,000</strong>
+            <small>possible table pages examined</small>
+          </div>
+          <div class="budget-arrow" aria-hidden="true">→</div>
+          <div class="budget-after">
+            <span>Guided search</span>
+            <strong>≈53</strong>
+            <small>3 index pages + up to 50 table pages</small>
+          </div>
+        </div>
+
+        <p class="lesson-copy">
+          The “up to 50” assumption is deliberately cautious: it imagines every returned row living on a
+          different table page. If nearby orders share pages, fewer table-page visits are needed. If a covering
+          index can answer the query by itself, PostgreSQL may avoid table-page visits altogether.
+        </p>
+
+        <blockquote class="dragon-line">
+          <span>The Old Dragon</span>
+          “Do not admire the speed first. Count the doors that no longer opened.”
+        </blockquote>
+      </section>
+
+      <section class="lesson-section plan-section" aria-labelledby="plan-title">
+        <div class="section-shell">
+          <div class="concept-heading">
+            <div>
+              <p class="eyebrow">04 · Ask PostgreSQL what happened</p>
+              <h2 id="plan-title">The query plan reveals the chosen path.</h2>
+            </div>
+            <p>
+              PostgreSQL’s planner compares possible paths and chooses the one it estimates will cost least.
+              <code>EXPLAIN</code> lets us inspect that choice instead of guessing.
+            </p>
+          </div>
+
+          <pre class="sql-block explain-command"><code>EXPLAIN (ANALYZE, BUFFERS)
+SELECT *
+FROM orders
+WHERE customer_id = 84217
+ORDER BY created_at DESC
+LIMIT 50;</code></pre>
+
+          <div class="plan-pair">
+            <article>
+              <span>Before the index</span>
+              <pre><code>Seq Scan on orders
+  Filter: customer_id = 84217
+  Rows Removed by Filter: many
+  Buffers: shared hit=… read=…</code></pre>
+            </article>
+            <article class="preferred-plan">
+              <span>After the index</span>
+              <pre><code>Index Scan using
+  orders_customer_created_idx
+  Index Cond: customer_id = 84217
+  Buffers: shared hit=… read=…</code></pre>
+            </article>
+          </div>
+
+          <div class="plan-legend">
+            <div><strong>Scan type</strong><span>Did PostgreSQL search the table or use the index?</span></div>
+            <div><strong>Actual time and rows</strong><span>What happened when the query really ran?</span></div>
+            <div><strong>Buffers: shared hit</strong><span>How many page accesses found their page in shared buffers?</span></div>
+            <div><strong>Buffers: shared read</strong><span>How many page accesses required a read into shared buffers?</span></div>
+          </div>
+
+          <p class="source-note">
+            <code>ANALYZE</code> actually runs the statement; use care with writes. PostgreSQL explains these
+            fields in the official <a href="https://www.postgresql.org/docs/current/using-explain.html">Using EXPLAIN guide</a>.
+          </p>
+        </div>
+      </section>
+
+      <section class="lesson-section section-shell" aria-labelledby="cost-title">
+        <div class="concept-heading">
+          <div>
+            <p class="eyebrow">05 · Every shortcut has a price</p>
+            <h2 id="cost-title">An index saves reads by adding work elsewhere.</h2>
+          </div>
+          <p>
+            An index is another data structure that PostgreSQL must store and keep correct. It should earn its
+            place through queries that matter.
+          </p>
+        </div>
+
+        <div class="cost-ledger">
+          <article><span>Reads</span><strong>Usually cheaper</strong><p>Selective queries can reach a small part of the table instead of examining most of it.</p></article>
+          <article><span>Writes</span><strong>More work</strong><p>Inserts, deletes, and changes to indexed values must also update the index.</p></article>
+          <article><span>Storage and memory</span><strong>More space</strong><p>Index pages consume disk space and compete with table pages for cache.</p></article>
+        </div>
+
+        <p class="lesson-copy">
+          This is why “index every column” is not a strategy. Start with an important query, design an index
+          that matches its filter and ordering, measure the page reduction, then decide whether the added write
+          and storage cost is worth paying.
+        </p>
+
+        <aside class="dragon-counsel" aria-labelledby="verdict-counsel">
+          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
+          <div>
+            <p class="eyebrow">The Dragon Explains</p>
+            <blockquote id="verdict-counsel">“A good index is a bargain struck with a known query.”</blockquote>
+            <p>
+              If a query needs most of the table, walking an index and then visiting many table pages can cost
+              more than a sequential scan. The planner may correctly ignore the index. The goal is not “use an
+              index”; the goal is “touch the fewest useful pages at an acceptable total cost.”
+            </p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="reckoning section-shell" aria-labelledby="reckoning-title">
+        <div class="reckoning-intro">
+          <p class="eyebrow">The Dragon’s Reckoning</p>
+          <h2 id="reckoning-title">Where we stand</h2>
+          <p>
+            One justified index changed the route through the same database. We removed page work before
+            considering a more complicated architecture.
+          </p>
+        </div>
+
+        <div class="standing-grid">
+          <article><span>What we learned</span><strong>An index is an access path</strong><p>It trades a broad table search for a short ordered guide to matching rows.</p></article>
+          <article><span>What we solved</span><strong>The customer-history query</strong><p>A matching composite index can cut the illustrative page journey from 1.25 million to about 53.</p></article>
+          <article><span>What remains</span><strong>Old data still shares the table</strong><p>Indexes help searches, but they do not create lifecycle boundaries for years of history.</p></article>
+          <article><span>Our system now</span><strong>One database · one justified index</strong><p>Reads are sharper, writes cost a little more, and the architecture remains simple.</p></article>
+        </div>
+
+        <div class="next-gate">
+          <div>
+            <span>Next · Lesson 04</span>
+            <h3>Divide the Hoard</h3>
+            <p>Create boundaries inside one table and let the planner ignore entire regions.</p>
+          </div>
+          <button type="button" disabled aria-describedby="next-note">The next gate opens soon</button>
+          <small id="next-note">Lesson 04 will be the next milestone.</small>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer section-shell">
+      <div><strong>Dungeons &amp; Databases</strong><p>A guided journey through database scaling.</p></div>
+      <div class="footer-links"><a href="../lesson-02-beneath-the-vault/">← Previous lesson</a><a href="../../index.html">Return to the map</a></div>
+    </footer>
+  </body>
+</html>

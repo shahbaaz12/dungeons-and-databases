@@ -45,7 +45,8 @@ index.html                                  course entrance and journey map
 styles.css                                 shared visual system
 site.js                                    shared theme behavior
 lessons/lesson-01-the-groaning-vault/      first interactive lesson
-lessons/lesson-02-beneath-the-vault/       pages and buffer-pool simulation
+lessons/lesson-02-beneath-the-vault/       pages, buffer pool, and working-set lesson
+lessons/lesson-03-sharpen-before-you-split/ query plans, indexes, and write-cost lesson
 lessons/lesson-shared.css                  shared lesson framing
 public/og.png                              social preview and Archivist portrait
 ```
