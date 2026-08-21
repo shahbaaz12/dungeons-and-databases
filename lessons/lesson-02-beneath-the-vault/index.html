@@ -5,16 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Follow database pages through disk, the buffer pool, clock-sweep eviction, and the working-set cliff."
+      content="Learn how PostgreSQL serves pages from RAM, loads buffer misses from storage, and keeps a working set hot."
     />
     <meta name="theme-color" content="#0b0d0c" />
     <meta property="og:type" content="article" />
     <meta property="og:title" content="Beneath the Vault · Dungeons &amp; Databases" />
-    <meta property="og:description" content="See why the same query can be fast in memory and painfully slow from disk." />
+    <meta property="og:description" content="Understand the buffer pool, page hits, storage misses, and clock-sweep eviction." />
     <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-02-beneath-the-vault/" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Beneath the Vault · Dungeons &amp; Databases" />
-    <meta name="twitter:description" content="See why the same query can be fast in memory and painfully slow from disk." />
+    <meta name="twitter:description" content="Understand the buffer pool, page hits, storage misses, and clock-sweep eviction." />
     <title>Lesson 02 · Beneath the Vault · Dungeons &amp; Databases</title>
     <link rel="stylesheet" href="../../styles.css" />
     <link rel="stylesheet" href="../lesson-shared.css" />
@@ -45,288 +45,214 @@
 
     <main id="lesson-content">
       <section class="lesson-hero section-shell">
-        <div class="lesson-hero-copy">
-          <p class="eyebrow">Lesson 02 · Inside the machine</p>
-          <h1>A row is never fetched alone.</h1>
-          <p>
-            The query asks for one order. Storage returns an entire page. Whether that page is already in
-            memory decides whether the request feels instant—or waits at the vault door.
-          </p>
-          <div class="lesson-tags" aria-label="Lesson concepts">
-            <span>8 KB pages</span><span>Buffer pool</span><span>Working set</span><span>Clock sweep</span>
-          </div>
-        </div>
-
-        <aside class="dragon-counsel compact" aria-labelledby="opening-counsel">
-          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
-          <div>
-            <p class="eyebrow">The Dragon’s Counsel</p>
-            <blockquote id="opening-counsel">“Do not count rows yet. Count the doors the database must open.”</blockquote>
-            <p>Pages are the unit of the journey. Rows are merely passengers.</p>
-          </div>
-        </aside>
+        <p class="eyebrow">Lesson 02 · Beneath the Vault</p>
+        <h1>The database serves data from RAM.</h1>
+        <p class="hero-lede">
+          Storage preserves the kingdom. Memory answers its questions. To understand why a query is fast
+          one moment and slow the next, we must follow a single page between the two.
+        </p>
+        <blockquote class="dragon-line">
+          <span>The Old Dragon</span>
+          “The row may sleep on disk, young keeper. It must wake in memory before it can speak.”
+        </blockquote>
       </section>
 
-      <section class="lesson-section page-journey-section" aria-labelledby="page-title">
-        <div class="section-shell">
-          <div class="concept-heading">
-            <div>
-              <p class="eyebrow">First: what is a page?</p>
-              <h2 id="page-title">Follow one requested row from query to memory.</h2>
-            </div>
-            <p>
-              A table looks like rows to us, but on disk it is a file divided into fixed-size blocks.
-              PostgreSQL normally uses <strong>8 KB pages</strong> for both tables and indexes.
-            </p>
-          </div>
-
-          <div class="page-journey" aria-label="Four steps from a row query to a row returned from a database page">
-            <article class="journey-step query-step">
-              <span>1 · The question</span>
-              <strong>The query asks for one row</strong>
-              <pre><code>SELECT * FROM orders
-WHERE order_id = 821;</code></pre>
-              <p>The database uses an access path to discover that order 821 lives on page 17.</p>
-            </article>
-
-            <article class="journey-step storage-step">
-              <span>2 · On disk</span>
-              <strong>Storage returns the whole page</strong>
-              <div class="disk-strip" aria-hidden="true">
-                <i>16</i><i class="is-requested">17<small>≈80 rows</small></i><i>18</i>
-              </div>
-              <p>Storage is not asked for “order 821.” It is asked for the 8 KB block called page 17.</p>
-            </article>
-
-            <article class="journey-step memory-step">
-              <span>3 · In memory</span>
-              <strong>The page enters a buffer frame</strong>
-              <div class="single-frame"><small>Buffer frame 6</small><b>Page 17</b><em>RAM</em></div>
-              <p>The buffer pool keeps this RAM copy so later requests may avoid another disk read.</p>
-            </article>
-
-            <article class="journey-step row-step">
-              <span>4 · The answer</span>
-              <strong>PostgreSQL returns the requested row</strong>
-              <div class="row-result"><small>order_id</small><b>821</b><small>status</small><b>shipped</b></div>
-              <p>The neighbouring rows arrived in memory too, even though this query did not ask for them.</p>
-            </article>
-          </div>
-
-          <div class="page-meaning">
-            <article><span>One row may require</span><strong>one full-page read</strong><p>If page 17 is absent from memory, all 8 KB must cross the storage boundary.</p></article>
-            <article><span>Nearby rows may cost</span><strong>no additional read</strong><p>Once the page is in RAM, every row stored inside it is already available.</p></article>
-            <article><span>Therefore performance becomes</span><strong>pages touched × page cost</strong><p>The next question is not merely how many rows exist, but how many pages the access path visits.</p></article>
-          </div>
-
+      <article class="lesson-reading">
+        <section class="reading-section" aria-labelledby="ram-title">
+          <p class="chapter-number">01 · The rule</p>
+          <h2 id="ram-title">A read finishes in RAM—always.</h2>
+          <p>
+            The CPU cannot evaluate a row while that row is merely bytes in a database file. PostgreSQL’s
+            query executor works with a page that is resident in memory. It checks values, follows row
+            pointers, and returns the result from that in-memory page.
+          </p>
+          <p>
+            So “reading from disk” is shorthand for an extra journey: fetch the required page from the
+            storage stack, place it into RAM, and only then read the row. A fast request skips that journey
+            because the page is already waiting in memory.
+          </p>
           <p class="precision-note">
-            <strong>About “≈80 rows”:</strong> it is a teaching estimate for rows around 100 bytes. Real capacity
-            varies because pages contain headers and pointers, and rows have different sizes.
+            <strong>A useful precision:</strong> the operating system may already have the file block in its
+            own cache, so a PostgreSQL buffer miss does not guarantee a physical device read. The database
+            still needs the page in RAM before the executor can use it.
           </p>
-        </div>
-      </section>
+        </section>
 
-      <section class="lesson-section buffer-explainer" aria-labelledby="buffer-title">
-        <div class="section-shell">
-          <div class="concept-heading">
-            <div>
-              <p class="eyebrow">Next: the buffer pool</p>
-              <h2 id="buffer-title">Every page request takes one of two paths.</h2>
-            </div>
-            <p>
-              The buffer pool is simply RAM divided into page-sized frames. A small lookup table maps
-              <code>(file, page number)</code> to the frame holding that page.
-            </p>
+        <section class="reading-section" aria-labelledby="speed-title">
+          <p class="chapter-number">02 · Why memory matters</p>
+          <h2 id="speed-title">RAM and storage live on different clocks.</h2>
+          <p>
+            The exact numbers change with hardware and workload. The important fact is the size of the gap:
+            a local SSD page fetch is commonly orders of magnitude slower than a memory access.
+          </p>
+
+          <div class="table-wrap">
+            <table class="latency-table">
+              <caption>Illustrative order-of-magnitude latency</caption>
+              <thead>
+                <tr><th scope="col">Source</th><th scope="col">Approximate latency</th><th scope="col">Relative wait</th></tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">RAM</th><td>~100 nanoseconds</td><td>1×</td></tr>
+                <tr><th scope="row">Local NVMe SSD</th><td>~100 microseconds</td><td>~1,000×</td></tr>
+                <tr><th scope="row">Network storage</th><td>~1 millisecond</td><td>~10,000×</td></tr>
+              </tbody>
+            </table>
           </div>
 
-          <div class="buffer-definition">
-            <div class="buffer-formula"><span>Buffer pool</span><strong>RAM ÷ 8 KB frames</strong><small>8 GiB of buffers can hold 1,048,576 PostgreSQL pages.</small></div>
-            <div class="buffer-shelf" aria-label="Example buffer pool containing six database pages">
-              <div><small>Frame 1</small><b>Page 3</b></div>
-              <div><small>Frame 2</small><b>Page 8</b></div>
-              <div class="requested-frame"><small>Frame 3</small><b>Page 17</b></div>
-              <div><small>Frame 4</small><b>Page 5</b></div>
-              <div><small>Frame 5</small><b>Page 22</b></div>
-              <div><small>Frame 6</small><b>Page 11</b></div>
-            </div>
+          <p>
+            At those simplified rates, 1,000 memory accesses account for about <strong>0.1 ms</strong> of raw
+            access time. One thousand SSD reads account for about <strong>100 ms</strong>. Database work,
+            operating-system caching, queues, and parallelism change a real measurement—but they do not make
+            the storage boundary disappear.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="buffer-title">
+          <p class="chapter-number">03 · The page buffer</p>
+          <h2 id="buffer-title">The buffer pool is a shelf of page-sized spaces in RAM.</h2>
+          <p>
+            PostgreSQL normally divides table and index files into <strong>8 KiB pages</strong>. Its shared
+            buffer pool is memory divided into frames of that same size. Each frame can hold one page, and a
+            small lookup structure records which <code>(file, page number)</code> currently occupies it.
+          </p>
+          <p>
+            This is why asking for one 100-byte row can still move an 8 KiB page. Storage and the buffer pool
+            exchange pages; the executor finds the particular row after the page is in memory.
+          </p>
+
+          <p>
+            Take a buffer configured as 1 GiB—often casually called “1 GB.” Because the binary unit divides
+            evenly into 8 KiB pages, its frame count is exact:
+          </p>
+
+          <div class="capacity-example" aria-label="One gibibyte buffer pool capacity calculation">
+            <p><span>Example buffer pool</span><strong>1 GiB</strong></p>
+            <p class="capacity-math">1,073,741,824 bytes ÷ 8,192 bytes per page</p>
+            <p><span>Maximum page frames</span><strong>131,072</strong></p>
           </div>
 
-          <div class="two-paths">
-            <article class="path-card hit-path">
-              <div class="path-heading"><span>Path A</span><strong>Buffer hit</strong><i>Cheap</i></div>
-              <div class="path-request">Request <b>page 17</b></div>
+          <p>
+            If each page held roughly 80 rows of about 100 bytes, those frames could contain about
+            <strong>10.5 million rows</strong> at once. That is a teaching estimate, not a capacity promise:
+            page headers, row overhead, variable row sizes, table pages, and index pages all consume space.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="paths-title">
+          <p class="chapter-number">04 · One request, two paths</p>
+          <h2 id="paths-title">A requested page either hits or misses.</h2>
+          <p>
+            Suppose PostgreSQL determines that the row it needs is on page 17 of <code>orders.dat</code>. The
+            buffer manager looks for that exact page. From there, only one of two things can happen.
+          </p>
+
+          <div class="request-paths">
+            <section aria-labelledby="hit-title">
+              <p class="path-label">Buffer hit · fast path</p>
+              <h3 id="hit-title">Page 17 is already in RAM.</h3>
               <ol>
-                <li><span>1</span><p>Look up <code>(orders.dat, 17)</code> in the page map.</p></li>
-                <li><span>2</span><p>The map points to frame 3, where page 17 already lives.</p></li>
-                <li><span>3</span><p>Return a pointer to that RAM frame. No database-file read is required.</p></li>
+                <li>The page map points to its buffer frame.</li>
+                <li>PostgreSQL raises that frame’s usage counter.</li>
+                <li>The executor reads the row from the frame and returns it.</li>
               </ol>
-              <div class="path-result"><span>Modeled cost</span><strong>1 work unit</strong></div>
-            </article>
+              <p><strong>No database-file read is needed.</strong></p>
+            </section>
 
-            <article class="path-card miss-path">
-              <div class="path-heading"><span>Path B</span><strong>Buffer miss</strong><i>Expensive</i></div>
-              <div class="path-request">Request <b>page 29</b></div>
+            <section aria-labelledby="miss-title">
+              <p class="path-label">Buffer miss · slow path</p>
+              <h3 id="miss-title">Page 17 is absent from RAM.</h3>
               <ol>
-                <li><span>1</span><p>Look up <code>(orders.dat, 29)</code>. No frame contains it.</p></li>
-                <li><span>2</span><p>Choose a frame to reuse. If its page is dirty, write it out first.</p></li>
-                <li><span>3</span><p>Read all 8 KB of page 29 from storage into that frame.</p></li>
-                <li><span>4</span><p>Update the page map, then return the pointer to RAM.</p></li>
+                <li>The buffer manager chooses a frame to reuse.</li>
+                <li>If its old page is dirty, PostgreSQL arranges for it to be written out.</li>
+                <li>Page 17 is loaded from the storage stack into that frame.</li>
+                <li>The page map is updated; then the executor reads the row from RAM.</li>
               </ol>
-              <div class="path-result"><span>Modeled cost</span><strong>1,000 work units</strong></div>
-            </article>
+              <p><strong>The result is still served from RAM—after paying the load cost.</strong></p>
+            </section>
           </div>
+        </section>
 
-          <div class="cost-note">
-            <span>Why use 1 versus 1,000?</span>
-            <p>
-              It is a relative teaching model, not a benchmark. RAM access is dramatically cheaper than
-              fetching a page from storage. Real latency also includes the operating-system cache, device,
-              queue depth, and database work around the read.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section class="lesson-section section-shell" aria-labelledby="working-set-title">
-        <div class="concept-heading">
-          <div>
-            <p class="eyebrow">Then: the working set</p>
-            <h2 id="working-set-title">Traffic decides which pages are “hot.”</h2>
-          </div>
+        <section class="reading-section" aria-labelledby="working-title">
+          <p class="chapter-number">05 · Working set and eviction</p>
+          <h2 id="working-title">Repeated traffic teaches the buffer pool what to keep.</h2>
           <p>
-            The working set is the collection of pages being revisited by current traffic. It is not the
-            table size, and PostgreSQL does not calculate or configure it as a named object.
+            The <strong>working set</strong> is the collection of pages current traffic keeps requesting. It is
+            not a configured list. Pages become “hot” because they are hit repeatedly; pages become cold when
+            requests stop returning to them.
           </p>
-        </div>
-
-        <div class="working-set-example">
-          <div class="pool-capacity"><span>Available memory</span><strong>8 buffer frames</strong><div><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
-          <div class="pattern-row fits-easily">
-            <div><span>Repeated dashboard</span><strong>4 hot pages</strong><small>Access trace repeats pages 3, 4, 5, 6</small></div>
-            <div class="working-pages" aria-label="Four hot pages"><i>3</i><i>4</i><i>5</i><i>6</i></div>
-            <div class="pattern-result"><strong>20 hits / 24 accesses</strong><span>After four cold loads, every page stays resident.</span></div>
-          </div>
-          <div class="pattern-row just-fits">
-            <div><span>Recent district</span><strong>8 hot pages</strong><small>Traffic revisits one compact range</small></div>
-            <div class="working-pages" aria-label="Eight hot pages"><i>8</i><i>9</i><i>10</i><i>11</i><i>12</i><i>13</i><i>14</i><i>15</i></div>
-            <div class="pattern-result"><strong>16 hits / 24 accesses</strong><span>The first pass loads eight pages; later passes hit RAM.</span></div>
-          </div>
-          <div class="pattern-row does-not-fit">
-            <div><span>Random history</span><strong>16 hot pages</strong><small>Requests alternate across a range twice the pool</small></div>
-            <div class="working-pages" aria-label="Sixteen hot pages represented in two groups"><i>1</i><i>3</i><i>6</i><i>8</i><i>…</i><i>25</i><i>29</i><i>31</i></div>
-            <div class="pattern-result"><strong>0 hits / 32 accesses</strong><span>In this trace, pages are evicted before their next use.</span></div>
-          </div>
-        </div>
-
-        <div class="cliff-summary">
-          <strong>Same 218 GB table. Same database. Different working set.</strong>
           <p>
-            Performance changes sharply when the hot pages stop fitting. Each miss loads a page and evicts
-            another page that may soon be needed. That self-reinforcing cycle is <em>thrashing</em>.
+            PostgreSQL’s normal shared-buffer replacement rule is a clock sweep. Each frame has a small usage
+            counter, capped at five. A hit raises the counter. When a miss needs room, a circular clock hand
+            inspects frames: a positive counter is reduced and spared for now; a frame already at zero can be
+            reused.
           </p>
-        </div>
 
-        <aside class="dragon-counsel" aria-labelledby="working-set-counsel">
-          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
-          <div>
-            <p class="eyebrow">The Dragon Explains</p>
-            <blockquote id="working-set-counsel">“A vast vault can be fast when its visitors crowd one room.”</blockquote>
-            <p>
-              A 1 TB table whose traffic touches only the newest 8 GB may remain comfortable. A 50 GB table
-              receiving random reads across all 50 GB may thrash on a 16 GB machine. Total data size alone
-              does not reveal the active memory pressure.
-            </p>
-          </div>
-        </aside>
-      </section>
-
-      <section class="lesson-section clock-section" aria-labelledby="clock-title">
-        <div class="section-shell">
-          <div class="concept-heading">
-            <div>
-              <p class="eyebrow">Finally: clock-sweep eviction</p>
-              <h2 id="clock-title">How PostgreSQL chooses a page to evict.</h2>
+          <div class="sweep-example">
+            <h3>One miss, followed step by step</h3>
+            <p>Page 29 is requested, but it is absent. The clock hand begins at frame 1.</p>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th scope="col">Frame</th><th scope="col">Page before</th><th scope="col">Usage before</th><th scope="col">What the hand does</th></tr>
+                </thead>
+                <tbody>
+                  <tr><th scope="row">1</th><td>3</td><td>2</td><td>Lower to 1; continue</td></tr>
+                  <tr><th scope="row">2</th><td>17</td><td>1</td><td>Lower to 0; continue</td></tr>
+                  <tr class="victim-row"><th scope="row">3</th><td>5</td><td>0</td><td>Evict page 5; load page 29</td></tr>
+                  <tr><th scope="row">4</th><td>8</td><td>3</td><td>Not visited; hand stops here</td></tr>
+                </tbody>
+              </table>
             </div>
-            <p>
-              Each buffer frame has a usage counter from 0 to 5. A hit raises it. When a miss needs space,
-              a clock hand searches circularly for a frame whose counter is already zero.
+            <p class="sweep-result">
+              Frame 3 now holds <strong>page 29</strong> with usage 1. The next search begins at frame 4.
             </p>
           </div>
 
-          <div class="clock-example">
-            <div class="clock-before">
-              <div class="example-heading"><span>Before the miss</span><strong>Request arrives for page 29</strong></div>
-              <div class="clock-frames" aria-label="Four example buffer frames before clock sweep">
-                <div class="has-hand"><span>Frame 1</span><strong>Page 3</strong><small>usage 2</small><em>clock hand</em></div>
-                <div><span>Frame 2</span><strong>Page 17</strong><small>usage 1</small></div>
-                <div class="future-victim"><span>Frame 3</span><strong>Page 5</strong><small>usage 0</small></div>
-                <div><span>Frame 4</span><strong>Page 8</strong><small>usage 3</small></div>
-              </div>
-            </div>
-
-            <ol class="sweep-trace">
-              <li><span>1</span><div><strong>Inspect frame 1</strong><p>Usage is 2, so lower it to 1 and move clockwise.</p></div><code>2 → 1</code></li>
-              <li><span>2</span><div><strong>Inspect frame 2</strong><p>Usage is 1, so lower it to 0 and keep moving.</p></div><code>1 → 0</code></li>
-              <li><span>3</span><div><strong>Inspect frame 3</strong><p>Usage is already 0. This frame becomes the victim.</p></div><code>victim</code></li>
-              <li><span>4</span><div><strong>Load the missing page</strong><p>Replace page 5 with page 29, set its usage to 1, and leave the hand at frame 4.</p></div><code>P5 → P29</code></li>
-            </ol>
-
-            <div class="clock-after">
-              <div class="example-heading"><span>After the miss</span><strong>Page 29 is now resident</strong></div>
-              <div class="clock-frames" aria-label="Four example buffer frames after clock sweep">
-                <div><span>Frame 1</span><strong>Page 3</strong><small>usage 1</small></div>
-                <div><span>Frame 2</span><strong>Page 17</strong><small>usage 0</small></div>
-                <div class="new-page"><span>Frame 3</span><strong>Page 29</strong><small>usage 1</small></div>
-                <div class="has-hand"><span>Frame 4</span><strong>Page 8</strong><small>usage 3</small><em>clock hand</em></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="clock-details">
-            <article><span>Why hot pages survive</span><p>Traffic keeps raising their counters before repeated sweeps can reduce them to zero.</p></article>
-            <article><span>Why cold pages disappear</span><p>Pages no longer referenced gradually decay to zero and become inexpensive victims.</p></article>
-            <article><span>Why dirty pages cost more</span><p>A clean victim can be overwritten. A modified page must be written out before its frame is reused.</p></article>
-          </div>
-
-          <p class="precision-note">
-            This is a deliberately small worked example of PostgreSQL’s normal shared-buffer replacement
-            rule. PostgreSQL also uses specialised buffer-access strategies for some large operations so a
-            sequential scan does not necessarily flood the entire shared pool.
-          </p>
-        </div>
-      </section>
-
-      <section class="reckoning section-shell" aria-labelledby="reckoning-title">
-        <div class="reckoning-intro">
-          <p class="eyebrow">The Dragon’s Reckoning</p>
-          <h2 id="reckoning-title">Where we stand</h2>
           <p>
-            We can now explain why the same SQL swings between fast and slow without changing a single row:
-            the pages were either already in memory or had to cross the storage boundary.
+            Notice what emerges. Pages 3 and 17 survived this sweep because recent hits gave them another
+            chance. If traffic hits them again, their counters rise again. A page that is no longer requested
+            eventually decays to zero and becomes a victim. A dirty victim costs more because its changes must
+            be preserved before the frame is reused.
           </p>
-        </div>
+          <p>
+            When the active pages fit in the buffer, the first requests warm the cache and later requests are
+            mostly hits. When the active pages are larger than the buffer—and traffic jumps around—useful pages
+            can be evicted before they are requested again. Misses create more misses. That is
+            <strong>thrashing</strong>.
+          </p>
 
-        <div class="standing-grid">
-          <article><span>What we learned</span><strong>Pages are the currency</strong><p>Rows, tables, and indexes all become page accesses before hardware can serve them.</p></article>
-          <article><span>What we solved</span><strong>The mysterious latency swing</strong><p>Buffer hits are cheap; misses load pages and may evict something useful.</p></article>
-          <article><span>What remains</span><strong>Why touch so many pages?</strong><p>The next lesson changes the access path instead of merely buying more memory.</p></article>
-          <article><span>Our system now</span><strong>One database · visible machinery</strong><p>The architecture is unchanged, but its memory behavior is no longer hidden.</p></article>
-        </div>
+          <blockquote class="dragon-line closing-line">
+            <span>The Old Dragon</span>
+            “A hot page is not crowned. It survives because the realm keeps calling its name.”
+          </blockquote>
+        </section>
 
-        <div class="next-gate">
+        <section class="where-we-stand" aria-labelledby="standing-title">
+          <p class="chapter-number">The Dragon’s Reckoning</p>
+          <h2 id="standing-title">Where we stand</h2>
+          <dl>
+            <div><dt>Every answer</dt><dd>is read from a page in RAM.</dd></div>
+            <div><dt>A buffer hit</dt><dd>uses a page that is already resident.</dd></div>
+            <div><dt>A buffer miss</dt><dd>loads a page, may evict another, and then serves from RAM.</dd></div>
+            <div><dt>The working set</dt><dd>is the set of pages repeated traffic keeps hot.</dd></div>
+          </dl>
+        </section>
+
+        <section class="next-gate" aria-labelledby="next-title">
           <div>
             <span>Next · Lesson 03</span>
-            <h3>Sharpen Before You Split</h3>
-            <p>Use an index to turn a million-page search into a five-page path—and count its write cost.</p>
+            <h2 id="next-title">Sharpen Before You Split</h2>
+            <p>Before adding machines, we will ask why the database had to touch so many pages at all.</p>
           </div>
           <button type="button" disabled aria-describedby="next-note">The next gate opens soon</button>
           <small id="next-note">Lesson 03 will be the next milestone.</small>
-        </div>
-      </section>
+        </section>
+      </article>
     </main>
 
     <footer class="site-footer section-shell">
-      <div><strong>Dungeons &amp; Databases</strong><p>A visual journey through database scaling.</p></div>
+      <div><strong>Dungeons &amp; Databases</strong><p>A guided journey through database scaling.</p></div>
       <div class="footer-links"><a href="../lesson-01-the-groaning-vault/">← Previous lesson</a><a href="../../index.html">Return to the map</a></div>
     </footer>
   </body>
