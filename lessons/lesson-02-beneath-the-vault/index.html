@@ -20,7 +20,6 @@
     <link rel="stylesheet" href="../lesson-shared.css" />
     <link rel="stylesheet" href="./lesson.css" />
     <script src="../../site.js" defer></script>
-    <script src="./lesson.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#lesson-content">Skip to the lesson</a>
@@ -68,129 +67,122 @@
         </aside>
       </section>
 
-      <section class="lesson-section page-anatomy-section" aria-labelledby="page-title">
-        <div class="section-shell page-anatomy-layout">
-          <div class="page-copy">
-            <p class="eyebrow">The smallest useful door</p>
-            <h2 id="page-title">Storage moves blocks, not individual rows.</h2>
+      <section class="lesson-section page-journey-section" aria-labelledby="page-title">
+        <div class="section-shell">
+          <div class="concept-heading">
+            <div>
+              <p class="eyebrow">First: what is a page?</p>
+              <h2 id="page-title">Follow one requested row from query to memory.</h2>
+            </div>
             <p>
-              PostgreSQL normally divides every table and index into <strong>8 KB pages</strong>. Ask for a
-              100-byte row and the database still brings its whole page into memory. The expensive part is
-              reaching storage; nearby rows arrive almost free.
+              A table looks like rows to us, but on disk it is a file divided into fixed-size blocks.
+              PostgreSQL normally uses <strong>8 KB pages</strong> for both tables and indexes.
             </p>
-            <dl class="page-facts">
-              <div><dt>8 KB</dt><dd>one PostgreSQL page</dd></div>
-              <div><dt>≈80</dt><dd>100-byte rows per page</dd></div>
-              <div><dt>1</dt><dd>page read for one row</dd></div>
-            </dl>
           </div>
 
-          <div class="page-model" aria-label="Simplified anatomy of an eight kilobyte database page">
-            <div class="page-model-label"><span>orders · page 17</span><strong>8 KB</strong></div>
-            <div class="page-header-block"><span>Page header</span><small>identity · checksums · free-space pointers</small></div>
-            <div class="line-pointer-block">
-              <span>Item pointers</span>
-              <div><i>01</i><i>02</i><i>03</i><i>04</i><i>…</i><i>79</i></div>
-            </div>
-            <div class="free-space-block"><span>Free space</span><i></i></div>
-            <div class="tuple-block">
-              <span>Row versions</span>
-              <div><i>order 819</i><i>order 820</i><i>order 821</i><i>order 822</i><i>order 823</i></div>
-            </div>
-            <p>One requested order brings its neighbours with it.</p>
+          <div class="page-journey" aria-label="Four steps from a row query to a row returned from a database page">
+            <article class="journey-step query-step">
+              <span>1 · The question</span>
+              <strong>The query asks for one row</strong>
+              <pre><code>SELECT * FROM orders
+WHERE order_id = 821;</code></pre>
+              <p>The database uses an access path to discover that order 821 lives on page 17.</p>
+            </article>
+
+            <article class="journey-step storage-step">
+              <span>2 · On disk</span>
+              <strong>Storage returns the whole page</strong>
+              <div class="disk-strip" aria-hidden="true">
+                <i>16</i><i class="is-requested">17<small>≈80 rows</small></i><i>18</i>
+              </div>
+              <p>Storage is not asked for “order 821.” It is asked for the 8 KB block called page 17.</p>
+            </article>
+
+            <article class="journey-step memory-step">
+              <span>3 · In memory</span>
+              <strong>The page enters a buffer frame</strong>
+              <div class="single-frame"><small>Buffer frame 6</small><b>Page 17</b><em>RAM</em></div>
+              <p>The buffer pool keeps this RAM copy so later requests may avoid another disk read.</p>
+            </article>
+
+            <article class="journey-step row-step">
+              <span>4 · The answer</span>
+              <strong>PostgreSQL returns the requested row</strong>
+              <div class="row-result"><small>order_id</small><b>821</b><small>status</small><b>shipped</b></div>
+              <p>The neighbouring rows arrived in memory too, even though this query did not ask for them.</p>
+            </article>
           </div>
+
+          <div class="page-meaning">
+            <article><span>One row may require</span><strong>one full-page read</strong><p>If page 17 is absent from memory, all 8 KB must cross the storage boundary.</p></article>
+            <article><span>Nearby rows may cost</span><strong>no additional read</strong><p>Once the page is in RAM, every row stored inside it is already available.</p></article>
+            <article><span>Therefore performance becomes</span><strong>pages touched × page cost</strong><p>The next question is not merely how many rows exist, but how many pages the access path visits.</p></article>
+          </div>
+
+          <p class="precision-note">
+            <strong>About “≈80 rows”:</strong> it is a teaching estimate for rows around 100 bytes. Real capacity
+            varies because pages contain headers and pointers, and rows have different sizes.
+          </p>
         </div>
       </section>
 
-      <section class="buffer-lab" aria-labelledby="lab-title">
+      <section class="lesson-section buffer-explainer" aria-labelledby="buffer-title">
         <div class="section-shell">
-          <div class="lab-heading">
+          <div class="concept-heading">
             <div>
-              <p class="eyebrow">Interactive buffer-pool lab</p>
-              <h2 id="lab-title">Decide which pages survive in memory.</h2>
-              <p>
-                Pick an access pattern, choose how many page-sized frames fit in RAM, and step through the
-                requests. A hit costs one modeled work unit. Loading from disk costs one thousand.
-              </p>
+              <p class="eyebrow">Next: the buffer pool</p>
+              <h2 id="buffer-title">Every page request takes one of two paths.</h2>
             </div>
-            <div class="lab-progress" aria-label="Experiment progress">
-              <span>Patterns explored</span><i data-progress-bar></i><strong data-progress-label>0 / 3</strong>
+            <p>
+              The buffer pool is simply RAM divided into page-sized frames. A small lookup table maps
+              <code>(file, page number)</code> to the frame holding that page.
+            </p>
+          </div>
+
+          <div class="buffer-definition">
+            <div class="buffer-formula"><span>Buffer pool</span><strong>RAM ÷ 8 KB frames</strong><small>8 GiB of buffers can hold 1,048,576 PostgreSQL pages.</small></div>
+            <div class="buffer-shelf" aria-label="Example buffer pool containing six database pages">
+              <div><small>Frame 1</small><b>Page 3</b></div>
+              <div><small>Frame 2</small><b>Page 8</b></div>
+              <div class="requested-frame"><small>Frame 3</small><b>Page 17</b></div>
+              <div><small>Frame 4</small><b>Page 5</b></div>
+              <div><small>Frame 5</small><b>Page 22</b></div>
+              <div><small>Frame 6</small><b>Page 11</b></div>
             </div>
           </div>
 
-          <div class="workload-tabs" role="tablist" aria-label="Page access patterns">
-            <button class="workload-tab is-active" id="workload-hot" type="button" role="tab" aria-selected="true" aria-controls="buffer-simulator" tabindex="0" data-workload="hot">
-              <span>01</span><strong>Hot ledger</strong><small>4 pages, repeatedly</small>
-            </button>
-            <button class="workload-tab" id="workload-local" type="button" role="tab" aria-selected="false" aria-controls="buffer-simulator" tabindex="-1" data-workload="local">
-              <span>02</span><strong>Busy district</strong><small>8 nearby pages</small>
-            </button>
-            <button class="workload-tab" id="workload-wide" type="button" role="tab" aria-selected="false" aria-controls="buffer-simulator" tabindex="-1" data-workload="wide">
-              <span>03</span><strong>Realm-wide random</strong><small>16 scattered pages</small>
-            </button>
+          <div class="two-paths">
+            <article class="path-card hit-path">
+              <div class="path-heading"><span>Path A</span><strong>Buffer hit</strong><i>Cheap</i></div>
+              <div class="path-request">Request <b>page 17</b></div>
+              <ol>
+                <li><span>1</span><p>Look up <code>(orders.dat, 17)</code> in the page map.</p></li>
+                <li><span>2</span><p>The map points to frame 3, where page 17 already lives.</p></li>
+                <li><span>3</span><p>Return a pointer to that RAM frame. No database-file read is required.</p></li>
+              </ol>
+              <div class="path-result"><span>Modeled cost</span><strong>1 work unit</strong></div>
+            </article>
+
+            <article class="path-card miss-path">
+              <div class="path-heading"><span>Path B</span><strong>Buffer miss</strong><i>Expensive</i></div>
+              <div class="path-request">Request <b>page 29</b></div>
+              <ol>
+                <li><span>1</span><p>Look up <code>(orders.dat, 29)</code>. No frame contains it.</p></li>
+                <li><span>2</span><p>Choose a frame to reuse. If its page is dirty, write it out first.</p></li>
+                <li><span>3</span><p>Read all 8 KB of page 29 from storage into that frame.</p></li>
+                <li><span>4</span><p>Update the page map, then return the pointer to RAM.</p></li>
+              </ol>
+              <div class="path-result"><span>Modeled cost</span><strong>1,000 work units</strong></div>
+            </article>
           </div>
 
-          <div class="buffer-simulator" id="buffer-simulator" role="tabpanel" aria-labelledby="workload-hot">
-            <div class="simulator-toolbar">
-              <div class="workload-summary">
-                <span data-workload-kicker>Repeated customer dashboard</span>
-                <strong data-workload-title>Four-page working set</strong>
-              </div>
-
-              <label class="frame-control" for="frame-count">
-                <span>Buffer frames</span>
-                <input id="frame-count" type="range" min="4" max="16" step="4" value="8" data-frame-count />
-                <strong><span data-frame-label>8</span> pages</strong>
-              </label>
-
-              <div class="simulator-actions">
-                <button class="sim-button sim-button-quiet" type="button" data-reset>Reset</button>
-                <button class="sim-button sim-button-secondary" type="button" data-step>Next access</button>
-                <button class="sim-button sim-button-primary" type="button" data-run>Run remaining</button>
-              </div>
-            </div>
-
-            <div class="access-sequence" aria-label="Upcoming page requests">
-              <span>Access trace</span>
-              <div data-access-sequence></div>
-            </div>
-
-            <div class="memory-stage">
-              <section class="disk-vault" aria-labelledby="disk-title">
-                <div class="stage-title"><span>Persistent storage</span><strong id="disk-title">orders.dat</strong></div>
-                <div class="disk-pages" data-disk-pages aria-label="Thirty-two pages on disk"></div>
-                <p>All 32 pages exist here. A highlighted page is the one currently requested.</p>
-              </section>
-
-              <div class="io-gate" aria-live="polite">
-                <span data-io-icon>?</span>
-                <strong data-io-state>Awaiting access</strong>
-                <small data-io-detail>Choose Next access or Run remaining</small>
-              </div>
-
-              <section class="buffer-vault" aria-labelledby="buffer-title">
-                <div class="stage-title"><span>Database memory</span><strong id="buffer-title">Buffer pool</strong></div>
-                <div class="buffer-frames" data-buffer-frames aria-label="Page-sized frames in memory"></div>
-                <div class="clock-hand"><span>Clock hand</span><i data-clock-position>Frame 1</i></div>
-                <p>Usage counters rise on hits. The clock hand lowers them until it finds a victim at zero.</p>
-              </section>
-            </div>
-
-            <div class="simulation-metrics" aria-live="polite">
-              <article><span>Page accesses</span><strong data-metric="accesses">0</strong><small data-total-accesses>of 24</small></article>
-              <article><span>Buffer hits</span><strong data-metric="hits">0</strong><small data-hit-ratio>0% hit ratio</small></article>
-              <article><span>Disk loads</span><strong data-metric="loads">0</strong><small>1,000 work units each</small></article>
-              <article><span>Evictions</span><strong data-metric="evictions">0</strong><small>pages displaced</small></article>
-              <article class="cost-metric"><span>Modeled work</span><strong data-metric="cost">0</strong><small>hits × 1 + loads × 1,000</small></article>
-            </div>
-
-            <div class="dragon-response" data-dragon-response aria-live="polite">
-              <div class="dragon-response-mark" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
-              <div>
-                <span>The Archivist is watching</span>
-                <p>Begin with the hot ledger. A small working set should learn to remain in memory.</p>
-              </div>
-            </div>
+          <div class="cost-note">
+            <span>Why use 1 versus 1,000?</span>
+            <p>
+              It is a relative teaching model, not a benchmark. RAM access is dramatically cheaper than
+              fetching a page from storage. Real latency also includes the operating-system cache, device,
+              queue depth, and database work around the read.
+            </p>
           </div>
         </div>
       </section>
@@ -198,42 +190,51 @@
       <section class="lesson-section section-shell" aria-labelledby="working-set-title">
         <div class="concept-heading">
           <div>
-            <p class="eyebrow">The invisible boundary</p>
-            <h2 id="working-set-title">Your working set is whatever traffic keeps touching.</h2>
+            <p class="eyebrow">Then: the working set</p>
+            <h2 id="working-set-title">Traffic decides which pages are “hot.”</h2>
           </div>
           <p>
-            It is not the table size and it is not a database setting. It emerges from the access pattern.
-            A terabyte table can be fast when only recent pages are hot; a smaller table can thrash when
-            requests jump randomly across all of it.
+            The working set is the collection of pages being revisited by current traffic. It is not the
+            table size, and PostgreSQL does not calculate or configure it as a named object.
           </p>
         </div>
 
-        <div class="cliff-comparison">
-          <article class="cliff-card stable">
-            <div class="cliff-visual"><span style="--height: 58%"></span><i style="--height: 74%"></i></div>
-            <p class="eyebrow">Pages fit</p>
-            <h3>8 hot pages · 12 frames</h3>
-            <p>Pages are revisited before the clock can evict them. After warm-up, almost every access is a hit.</p>
-            <strong>Stable side of the cliff</strong>
-          </article>
-          <article class="cliff-card thrashing">
-            <div class="cliff-visual"><span style="--height: 92%"></span><i style="--height: 40%"></i></div>
-            <p class="eyebrow">Pages do not fit</p>
-            <h3>24 hot pages · 12 frames</h3>
-            <p>Every requested page displaces another useful page. Disk reads create more evictions, not relief.</p>
-            <strong>Thrashing side of the cliff</strong>
-          </article>
+        <div class="working-set-example">
+          <div class="pool-capacity"><span>Available memory</span><strong>8 buffer frames</strong><div><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+          <div class="pattern-row fits-easily">
+            <div><span>Repeated dashboard</span><strong>4 hot pages</strong><small>Access trace repeats pages 3, 4, 5, 6</small></div>
+            <div class="working-pages" aria-label="Four hot pages"><i>3</i><i>4</i><i>5</i><i>6</i></div>
+            <div class="pattern-result"><strong>20 hits / 24 accesses</strong><span>After four cold loads, every page stays resident.</span></div>
+          </div>
+          <div class="pattern-row just-fits">
+            <div><span>Recent district</span><strong>8 hot pages</strong><small>Traffic revisits one compact range</small></div>
+            <div class="working-pages" aria-label="Eight hot pages"><i>8</i><i>9</i><i>10</i><i>11</i><i>12</i><i>13</i><i>14</i><i>15</i></div>
+            <div class="pattern-result"><strong>16 hits / 24 accesses</strong><span>The first pass loads eight pages; later passes hit RAM.</span></div>
+          </div>
+          <div class="pattern-row does-not-fit">
+            <div><span>Random history</span><strong>16 hot pages</strong><small>Requests alternate across a range twice the pool</small></div>
+            <div class="working-pages" aria-label="Sixteen hot pages represented in two groups"><i>1</i><i>3</i><i>6</i><i>8</i><i>…</i><i>25</i><i>29</i><i>31</i></div>
+            <div class="pattern-result"><strong>0 hits / 32 accesses</strong><span>In this trace, pages are evicted before their next use.</span></div>
+          </div>
+        </div>
+
+        <div class="cliff-summary">
+          <strong>Same 218 GB table. Same database. Different working set.</strong>
+          <p>
+            Performance changes sharply when the hot pages stop fitting. Each miss loads a page and evicts
+            another page that may soon be needed. That self-reinforcing cycle is <em>thrashing</em>.
+          </p>
         </div>
 
         <aside class="dragon-counsel" aria-labelledby="working-set-counsel">
           <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
           <div>
             <p class="eyebrow">The Dragon Explains</p>
-            <blockquote id="working-set-counsel">“The database never names your working set. It merely remembers what you touched.”</blockquote>
+            <blockquote id="working-set-counsel">“A vast vault can be fast when its visitors crowd one room.”</blockquote>
             <p>
-              PostgreSQL’s clock sweep uses a small usage counter, capped at five. A hit raises the counter.
-              When memory is full, the clock hand walks the frames: counters above zero fall by one; the
-              first frame already at zero can be reused. Hot pages survive because traffic keeps refreshing them.
+              A 1 TB table whose traffic touches only the newest 8 GB may remain comfortable. A 50 GB table
+              receiving random reads across all 50 GB may thrash on a 16 GB machine. Total data size alone
+              does not reveal the active memory pressure.
             </p>
           </div>
         </aside>
@@ -243,18 +244,55 @@
         <div class="section-shell">
           <div class="concept-heading">
             <div>
-              <p class="eyebrow">Clock-sweep eviction</p>
-              <h2 id="clock-title">A tiny local rule creates global memory.</h2>
+              <p class="eyebrow">Finally: clock-sweep eviction</p>
+              <h2 id="clock-title">How PostgreSQL chooses a page to evict.</h2>
             </div>
-            <p>There is no grand model of your traffic. Each frame knows only its page and a usage counter.</p>
+            <p>
+              Each buffer frame has a usage counter from 0 to 5. A hit raises it. When a miss needs space,
+              a clock hand searches circularly for a frame whose counter is already zero.
+            </p>
           </div>
 
-          <ol class="clock-steps">
-            <li><span>1</span><strong>Look for the page</strong><p>If its page number is already mapped to a frame, the access is a hit.</p></li>
-            <li><span>2</span><strong>Raise its memory</strong><p>A hit increases that frame’s usage counter, up to PostgreSQL’s cap of five.</p></li>
-            <li><span>3</span><strong>Sweep when full</strong><p>On a miss, the clock hand lowers positive counters as it searches for zero.</p></li>
-            <li><span>4</span><strong>Reuse the victim</strong><p>The zero-counter frame is replaced; a dirty victim must be written first.</p></li>
-          </ol>
+          <div class="clock-example">
+            <div class="clock-before">
+              <div class="example-heading"><span>Before the miss</span><strong>Request arrives for page 29</strong></div>
+              <div class="clock-frames" aria-label="Four example buffer frames before clock sweep">
+                <div class="has-hand"><span>Frame 1</span><strong>Page 3</strong><small>usage 2</small><em>clock hand</em></div>
+                <div><span>Frame 2</span><strong>Page 17</strong><small>usage 1</small></div>
+                <div class="future-victim"><span>Frame 3</span><strong>Page 5</strong><small>usage 0</small></div>
+                <div><span>Frame 4</span><strong>Page 8</strong><small>usage 3</small></div>
+              </div>
+            </div>
+
+            <ol class="sweep-trace">
+              <li><span>1</span><div><strong>Inspect frame 1</strong><p>Usage is 2, so lower it to 1 and move clockwise.</p></div><code>2 → 1</code></li>
+              <li><span>2</span><div><strong>Inspect frame 2</strong><p>Usage is 1, so lower it to 0 and keep moving.</p></div><code>1 → 0</code></li>
+              <li><span>3</span><div><strong>Inspect frame 3</strong><p>Usage is already 0. This frame becomes the victim.</p></div><code>victim</code></li>
+              <li><span>4</span><div><strong>Load the missing page</strong><p>Replace page 5 with page 29, set its usage to 1, and leave the hand at frame 4.</p></div><code>P5 → P29</code></li>
+            </ol>
+
+            <div class="clock-after">
+              <div class="example-heading"><span>After the miss</span><strong>Page 29 is now resident</strong></div>
+              <div class="clock-frames" aria-label="Four example buffer frames after clock sweep">
+                <div><span>Frame 1</span><strong>Page 3</strong><small>usage 1</small></div>
+                <div><span>Frame 2</span><strong>Page 17</strong><small>usage 0</small></div>
+                <div class="new-page"><span>Frame 3</span><strong>Page 29</strong><small>usage 1</small></div>
+                <div class="has-hand"><span>Frame 4</span><strong>Page 8</strong><small>usage 3</small><em>clock hand</em></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="clock-details">
+            <article><span>Why hot pages survive</span><p>Traffic keeps raising their counters before repeated sweeps can reduce them to zero.</p></article>
+            <article><span>Why cold pages disappear</span><p>Pages no longer referenced gradually decay to zero and become inexpensive victims.</p></article>
+            <article><span>Why dirty pages cost more</span><p>A clean victim can be overwritten. A modified page must be written out before its frame is reused.</p></article>
+          </div>
+
+          <p class="precision-note">
+            This is a deliberately small worked example of PostgreSQL’s normal shared-buffer replacement
+            rule. PostgreSQL also uses specialised buffer-access strategies for some large operations so a
+            sequential scan does not necessarily flood the entire shared pool.
+          </p>
         </div>
       </section>
 
@@ -264,7 +302,7 @@
           <h2 id="reckoning-title">Where we stand</h2>
           <p>
             We can now explain why the same SQL swings between fast and slow without changing a single row:
-            the pages were either already in memory or had to cross the disk boundary.
+            the pages were either already in memory or had to cross the storage boundary.
           </p>
         </div>
 

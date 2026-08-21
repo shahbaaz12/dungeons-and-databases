@@ -13,7 +13,7 @@ lets the reader observe it, and adds architecture only when the previous system 
 - Lesson 01: **The Groaning Vault**
 - Lesson 02: **Beneath the Vault**
 - Three interactive diagnostic workloads with persistent progress
-- A deterministic buffer-pool simulator with clock-sweep eviction
+- Visual walkthroughs of buffer hits, misses, working sets, and clock-sweep eviction
 - Responsive dark and light themes
 - Static GitHub Pages deployment
 
@@ -52,3 +52,5 @@ public/og.png                              social preview and Archivist portrait
 
 The simulation is intentionally browser-only. Modeled numbers are identified in the interface; the database
 relationships they demonstrate are grounded in real PostgreSQL behavior.
+
+The teaching and interaction rules for future lessons live in [`docs/teaching-principles.md`](docs/teaching-principles.md).
