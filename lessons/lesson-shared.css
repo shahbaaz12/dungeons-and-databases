@@ -145,3 +145,26 @@ code {
   .lesson-hero h1 { font-size: clamp(3rem, 15vw, 4.5rem); }
   .dragon-counsel, .dragon-counsel.compact { grid-template-columns: 1fr; }
 }
+
+.gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.gate-actions .button-secondary b {
+  margin-right: 0.15rem;
+}
+
+@media (max-width: 720px) {
+  .gate-actions {
+    width: 100%;
+  }
+
+  .gate-actions .button {
+    flex: 1 1 auto;
+    justify-content: center;
+    text-align: center;
+  }
+}

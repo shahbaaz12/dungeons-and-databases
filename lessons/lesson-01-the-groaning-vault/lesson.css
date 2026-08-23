@@ -350,3 +350,19 @@ code {
   .scenario-tab { grid-template-columns: auto 1fr; }
   .scenario-tab small { grid-column: 2; justify-self: start; }
 }
+
+.gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.gate-actions .button-secondary b {
+  margin-right: 0.15rem;
+}
+
+@media (max-width: 720px) {
+  .gate-actions { width: 100%; }
+  .gate-actions .button { flex: 1 1 auto; justify-content: center; text-align: center; }
+}
