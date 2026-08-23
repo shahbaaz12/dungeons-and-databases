@@ -72,280 +72,173 @@
       </section>
 
       <article class="lesson-reading">
-        <section class="reading-section" aria-labelledby="ran-out-title">
-          <p class="chapter-number">01 · Start with what ran out</p>
-          <h2 id="ran-out-title">"The database is slow" is not a diagnosis.</h2>
+        <section class="reading-section" aria-labelledby="given-title">
+          <p class="chapter-number">01 · What you were given</p>
+          <h2 id="given-title">Eight lessons, and they divide evenly in two.</h2>
+
+          <h3>Four handed you a tool</h3>
+          <div class="table-wrap">
+            <table>
+              <caption>The techniques</caption>
+              <thead>
+                <tr><th scope="col">Lesson</th><th scope="col">Tool</th><th scope="col">What it fixes</th></tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">03 · The Dragon&#8217;s Gift</th><td><strong>Index</strong></td><td>Too many pages per query</td></tr>
+                <tr><th scope="row">05 · Divide the Hoard</th><td><strong>Partitioning</strong></td><td>Too much data per operation</td></tr>
+                <tr><th scope="row">06 · Across Many Keeps</th><td><strong>Sharding</strong></td><td>Write throughput</td></tr>
+                <tr><th scope="row">07 · Copies of the Ledger</th><td><strong>Replication</strong></td><td>Read capacity, and survival</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Four taught you to choose between them</h3>
+          <div class="table-wrap">
+            <table>
+              <caption>The judgement</caption>
+              <thead>
+                <tr><th scope="col">Lesson</th><th scope="col">What it taught</th></tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">01 · The Groaning Vault</th><td>Measure before you name a cure</td></tr>
+                <tr><th scope="row">02 · Beneath the Vault</th><td>Why speed changes at all &#8212; pages, memory, eviction</td></tr>
+                <tr><th scope="row">04 · The Dragon&#8217;s Debt</th><td>What every index costs on the write path</td></tr>
+                <tr><th scope="row">08 · The Price of Many Realms</th><td>Which promise you are making, and to whom</td></tr>
+              </tbody>
+            </table>
+          </div>
+
           <p>
-            Every technique in this course fixes exactly one kind of exhaustion. Applying the wrong one is how
-            teams spend six months sharding a database that needed an index &#8212; and end up with both the
-            original problem and a permanent new one.
+            That balance is the lesson. <mark class="quiet-highlight">Knowing four techniques is common.
+            Knowing which one a problem calls for is not.</mark>
           </p>
-          <p>
-            So the first question is never <em>which tool</em>. It is
-            <mark class="quiet-highlight">which resource has run out.</mark>
-          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="when-title">
+          <p class="chapter-number">02 · Which one, and when</p>
+          <h2 id="when-title">Never start from the tool. Start from the resource that ran out.</h2>
 
           <div class="table-wrap">
             <table>
               <caption>Triage</caption>
               <thead>
-                <tr>
-                  <th scope="col">The symptom</th>
-                  <th scope="col">What has actually run out</th>
-                  <th scope="col">Where to look first</th>
-                </tr>
+                <tr><th scope="col">The symptom</th><th scope="col">What ran out</th><th scope="col">Reach for</th></tr>
               </thead>
               <tbody>
                 <tr>
-                  <th scope="row">Reads slow, buffer hit ratio low</th>
+                  <th scope="row">Reads slow, low buffer hit ratio</th>
                   <td>Memory &#8212; the working set does not fit</td>
-                  <td>An index, to touch fewer pages. Then partitioning, to shrink the hot slice</td>
+                  <td><strong>Index</strong> first, then <strong>partitioning</strong></td>
                 </tr>
                 <tr>
-                  <th scope="row">Reads slow, hit ratio high</th>
-                  <td>CPU, or the shape of the query</td>
-                  <td>The query itself. The storage layer is not your problem</td>
+                  <th scope="row">Reads slow, high hit ratio</th>
+                  <td>CPU, or the query&#8217;s shape</td>
+                  <td>The <strong>query</strong>. Storage is not your problem</td>
                 </tr>
                 <tr>
                   <th scope="row">Writes slow, commits queuing</th>
                   <td>Write throughput &#8212; one log, one disk</td>
-                  <td>Drop unused indexes. Then a bigger machine. Then shard</td>
+                  <td>Drop unused indexes &#8594; bigger machine &#8594; <strong>shard</strong></td>
                 </tr>
                 <tr>
                   <th scope="row">Disk filling up</th>
                   <td>Storage</td>
-                  <td>Partitioning plus a retention policy. Then shard</td>
+                  <td><strong>Partitioning</strong> + retention, then <strong>sharding</strong></td>
                 </tr>
                 <tr>
                   <th scope="row">Read volume beyond one machine</th>
                   <td>Read capacity</td>
-                  <td>Replicas</td>
+                  <td><strong>Replicas</strong></td>
                 </tr>
                 <tr>
                   <th scope="row">Downtime when a machine dies</th>
                   <td>Availability</td>
-                  <td>Replication and a tested failover</td>
+                  <td><strong>Replication</strong> and a tested failover</td>
                 </tr>
                 <tr class="win">
                   <th scope="row">Someone deleted the wrong rows</th>
                   <td>History</td>
-                  <td>Backups. Replicas cannot help you here</td>
+                  <td><strong>Backups.</strong> Replicas cannot help you</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
           <p>
-            Notice how many rows do <em>not</em> lead to sharding. That is the point of the table.
+            Notice how few rows end in sharding. That is the point of the table.
           </p>
         </section>
 
         <section class="reading-section" aria-labelledby="order-title">
-          <p class="chapter-number">02 · The order of work</p>
-          <h2 id="order-title">You did not learn them in the order you should apply them.</h2>
+          <p class="chapter-number">03 · In what order</p>
+          <h2 id="order-title">Cheapest and most reversible first.</h2>
           <p>
-            This course taught sharding before replication, because sharding follows naturally from
-            partitioning &#8212; both are about splitting data. That was a teaching decision.
+            The question is not only <em>will this work</em>. It is <em>what does it cost me if I am
+            wrong</em>.
           </p>
-          <p>
-            <strong>In practice the order is different</strong>, because what matters when choosing is not how
-            similar two tools are. It is how much each one costs you if you are wrong.
-          </p>
-
-          <div class="table-wrap">
-            <table>
-              <caption>Cost of being wrong</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Tool</th>
-                  <th scope="col">Reversible?</th>
-                  <th scope="col">Changes application code?</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr class="win">
-                  <th scope="row">Index</th>
-                  <td>Yes &#8212; <code>DROP INDEX</code>, instantly</td>
-                  <td>No</td>
-                </tr>
-                <tr>
-                  <th scope="row">Partition</th>
-                  <td>Hard &#8212; the key means rewriting the table</td>
-                  <td>No, but queries must carry the key</td>
-                </tr>
-                <tr>
-                  <th scope="row">Replica</th>
-                  <td>Yes &#8212; remove it and nothing breaks</td>
-                  <td>Yes &#8212; you must decide which reads tolerate staleness</td>
-                </tr>
-                <tr>
-                  <th scope="row">Shard</th>
-                  <td>Effectively no</td>
-                  <td>Yes &#8212; routing, joins, transactions, IDs, everything after</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <p>So the ladder, cheapest and most reversible first:</p>
 
           <ul class="read-paths ladder">
             <li><strong>Measure.</strong> Find the constraint before touching anything.</li>
-            <li><strong>Fix the query, and add the index it deserves.</strong> Most "we need to scale" conversations should end here.</li>
-            <li><strong>Remove the indexes nobody uses</strong>, so writes stop paying for maps no query reads.</li>
-            <li><strong>Partition</strong>, if the data has a natural boundary your queries already use and history needs expiring.</li>
-            <li><strong>Buy a bigger machine.</strong> Badly underrated. It costs less than the engineering months the next two steps consume.</li>
-            <li><strong>Add replicas</strong> for read capacity and for surviving a failure.</li>
+            <li><strong>Fix the query, add the index it deserves.</strong> Most "we need to scale" conversations should end here.</li>
+            <li><strong>Drop the indexes nobody uses.</strong> Writes stop paying rent on maps no query reads.</li>
+            <li><strong>Partition</strong> &#8212; if the data has a natural boundary your queries already use, and history needs expiring.</li>
+            <li><strong>Buy a bigger machine.</strong> Badly underrated. Cheaper than the engineering months the next two steps cost.</li>
+            <li><strong>Replicate</strong> &#8212; for read capacity, and for surviving a failure.</li>
             <li><strong>Shard</strong> &#8212; only when <em>writes</em> are what ran out.</li>
           </ul>
 
-          <p class="transition-callout">
-            Replication moves ahead of sharding here, even though you met it later. It is reversible, it solves
-            the more common problems, and it is the only one of the two that addresses a machine
-            <em>dying</em> rather than a machine being <em>full</em>.
-          </p>
-        </section>
-
-        <section class="reading-section" aria-labelledby="buys-title">
-          <p class="chapter-number">03 · What each tool buys</p>
-          <h2 id="buys-title">Nothing here is free. Know what you are paying.</h2>
-
-          <div class="table-wrap">
-            <table>
-              <caption>The complete ledger</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Tool</th>
-                  <th scope="col">Buys you</th>
-                  <th scope="col">Charges you</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row">Index</th>
-                  <td>Far fewer pages per query</td>
-                  <td>Slower writes, storage, competition for buffer slots</td>
-                </tr>
-                <tr>
-                  <th scope="row">Partitioning</th>
-                  <td>Less data per operation; instant retention; bounded maintenance</td>
-                  <td>A near-permanent key, multiplied indexes, planning overhead</td>
-                </tr>
-                <tr>
-                  <th scope="row">Replication</th>
-                  <td>Read capacity and survival</td>
-                  <td>Lag, and a choice between losing data or losing availability</td>
-                </tr>
-                <tr class="win">
-                  <th scope="row">Sharding</th>
-                  <td><strong>Write throughput</strong> &#8212; the only thing that raises it</td>
-                  <td>Fan-out, lost joins, lost transactions, routing, rebalancing</td>
-                </tr>
-                <tr>
-                  <th scope="row">Backups</th>
-                  <td>The ability to undo yourself</td>
-                  <td>Storage, and a restore time measured in hours</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
           <p>
-            Read the last two rows together. Replication and backups look like the same idea and solve opposite
-            problems &#8212; one protects you from a machine, the other from your own mistakes. Neither
-            substitutes for the other.
-          </p>
-        </section>
-
-        <section class="reading-section" aria-labelledby="rule-title">
-          <p class="chapter-number">04 · The rule that never changed</p>
-          <h2 id="rule-title">The structure only helps queries shaped like it.</h2>
-          <p>
-            One rule appeared at every scale in this course, wearing a different name each time:
-          </p>
-          <ul class="read-paths">
-            <li>An <strong>index</strong> only helps queries that match its <em>leading column</em>.</li>
-            <li>A <strong>partition</strong> only prunes if the query filters on the <em>partition key</em>.</li>
-            <li>A <strong>shard</strong> can only be targeted if the query carries the <em>shard key</em>.</li>
-          </ul>
-          <p>
-            Same principle, three scales &#8212; and the penalty for breaking it grows each time. Miss the
-            leading column and you read some extra pages. Miss the partition key and you open every partition.
-            Miss the shard key and you send a request to <strong>every machine you own</strong>.
+            An index is a <code>DROP INDEX</code> away from undone. A partition key means rewriting the table.
+            A shard means rewriting how your application thinks.
+            <strong>Spend the reversible things freely and the irreversible ones last.</strong>
           </p>
 
-          <p class="transition-callout">
-            Which gives one practical instruction that outranks the rest:
-            <strong>choose keys from the queries you actually run, never from what looks tidy in the
-            schema.</strong>
-          </p>
-        </section>
-
-        <section class="reading-section" aria-labelledby="wrong-title">
-          <p class="chapter-number">05 · How this goes wrong</p>
-          <h2 id="wrong-title">Seven mistakes, each one a tool aimed at the wrong problem.</h2>
-
+          <h3>Three ways this goes wrong</h3>
           <ul class="read-paths mistakes">
             <li>
-              <strong>Sharding a read problem.</strong> Enormously expensive, permanent, and an index or a
-              partition would have done it. Ask what ran out first.
+              <strong>Sharding a read problem.</strong> Permanent, expensive, and an index would have done it.
             </li>
             <li>
-              <strong>Adding indexes to fix slow writes.</strong> Every index makes writes <em>slower</em>.
-              This is the one mistake that actively deepens the problem it was meant to solve.
-            </li>
-            <li>
-              <strong>Adding replicas to fix write throughput.</strong> Every write still passes through the
-              one primary, and now gets shipped and replayed as well. Replicas make writes marginally worse.
+              <strong>Adding indexes to fix slow writes.</strong> Every index makes writes <em>slower</em>
+              &#8212; this one deepens the problem it was meant to solve.
             </li>
             <li>
               <strong>Treating replicas as backups.</strong> A replica reproduces your <code>DROP TABLE</code>
-              faithfully, in milliseconds. It has no memory of last Tuesday.
-            </li>
-            <li>
-              <strong>Hash partitioning, then wanting range queries.</strong> Hashing spreads rows evenly and
-              destroys pruning. If you wanted to skip work rather than balance it, you chose the wrong strategy.
-            </li>
-            <li>
-              <strong>Rewriting SQL when the pages are not in memory.</strong> No phrasing of a query defeats
-              physics. If the hit ratio is low, the data is on disk, and only fewer pages or more memory helps.
-            </li>
-            <li>
-              <strong>Reaching for anything before measuring.</strong> Every mistake above begins here.
+              faithfully, in milliseconds.
             </li>
           </ul>
         </section>
 
         <section class="reading-section" aria-labelledby="judgement-title">
-          <p class="chapter-number">06 · The judgement</p>
+          <p class="chapter-number">04 · The judgement</p>
           <h2 id="judgement-title">Choose the smallest thing that solves the measured limit.</h2>
           <p>
-            That sentence is the whole lesson. Every word in it is load-bearing.
+            Everything above collapses into that one sentence, and every word in it is load-bearing.
           </p>
           <p>
-            <strong>Smallest</strong>, because complexity is permanent and capacity is cheap. <strong>Solves</strong>,
-            because a technique that does not address the actual constraint is not a partial fix, it is a new
-            problem laid on top of the old one. <strong>Measured</strong>, because without evidence you are
-            choosing by instinct &#8212; and instinct reaches for whatever you read about most recently.
+            <strong>Smallest</strong>, because complexity is permanent and capacity is cheap.
+            <strong>Solves</strong>, because a tool aimed at the wrong constraint is not a partial fix &#8212;
+            it is a second problem stacked on the first. <strong>Measured</strong>, because without evidence
+            you are choosing by instinct, and instinct reaches for whatever you read about most recently.
           </p>
-          <p>
-            The three questions worth asking out loud before any of it:
-          </p>
+          <p>Three questions, asked out loud, before any of it:</p>
+
           <ul class="read-paths">
             <li><strong>What ran out?</strong> Name the resource, with a number attached.</li>
-            <li><strong>What is the cheapest thing that would fix it?</strong> Start at the top of the ladder, not the bottom.</li>
+            <li><strong>What is the cheapest thing that fixes it?</strong> Start at the top of the ladder.</li>
             <li><strong>What will this cost me forever?</strong> Some doors do not open again.</li>
           </ul>
+
           <p>
-            You will not always get this right. But a keeper who can say <em>which</em> resource ran out, and
-            <em>why</em> this tool addresses it, is already doing something most never do &#8212; and can
-            defend the answer when someone asks.
+            You will not always get it right. But a keeper who can say <em>which</em> resource ran out and
+            <em>why</em> this tool addresses it is already doing what most never do &#8212; and can defend the
+            answer when someone asks.
           </p>
 
           <blockquote class="dragon-line closing-line">
             <span>The Old Dragon</span>
-            “Go now, keeper. And when they ask you how to scale it, ask them what has run out — and watch how
-            few of them know.”
+            &#8220;Go now, keeper. And when they ask you how to scale it, ask them what has run out &#8212; and watch
+            how few of them know.&#8221;
           </blockquote>
         </section>
       </article>

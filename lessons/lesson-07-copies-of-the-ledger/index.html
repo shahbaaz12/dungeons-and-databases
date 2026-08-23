@@ -38,9 +38,9 @@
           <p class="eyebrow">Lesson 07 · One truth, many hands</p>
           <h1>One truth. More places to read it.</h1>
           <p>
-            Sharding gave you capacity, not survival. Replication keeps live copies of the same data on other
-            machines — which is not the same thing as a backup, and brings a question of its own: when two
-            machines hold the same row, which one is right?
+            Everything so far assumed the machine keeps running. Replication keeps live copies of the same
+            data on other machines — which is not the same thing as a backup, and brings a question of its
+            own: when two machines hold the same row, which one is right?
           </p>
           <div class="lesson-tags" aria-label="Lesson concepts"><span>WAL</span><span>Replica lag</span><span>Read your writes</span><span>Failover</span></div>
         </div>
@@ -52,19 +52,25 @@
 
       <article class="lesson-reading">
         <section class="reading-section" aria-labelledby="left-title">
-          <p class="chapter-number">01 · Where sharding left you</p>
-          <h2 id="left-title">Capacity and survival are different problems.</h2>
+          <p class="chapter-number">01 · The assumption so far</p>
+          <h2 id="left-title">Every technique so far assumed the machine keeps running.</h2>
           <p>
-            Four shards, four times the write capacity. And four machines that can fail.
+            Indexes, partitions, shards — every one of them made a working database do more. None of them
+            considered what happens when it stops working.
           </p>
           <p>
-            When one goes down it does not take a quarter of your speed &#8212; it takes a quarter of your
-            <strong>answers</strong>. Every customer whose rows live there gets errors, and no amount of
-            capacity on the other three helps them.
+            One machine holding your data is one machine that can fail. And when it does, the data is not
+            <em>slow</em>. It is <strong>unreachable</strong>, until someone restores it from somewhere else.
           </p>
           <p>
-            <mark class="quiet-highlight">Sharding bought you room to grow. It bought nothing at all in the way
-            of survival.</mark>
+            If you sharded, this got worse rather than better. Four keeps are four things that can fail, and
+            losing one does not cost you a quarter of your speed — it costs a quarter of your
+            <strong>answers</strong>. Every customer whose rows lived there gets errors, and the other three
+            machines cannot help them.
+          </p>
+          <p>
+            <mark class="quiet-highlight">Capacity and survival are different problems.</mark> Everything up to
+            now solved the first one. Nothing has touched the second.
           </p>
         </section>
 
@@ -175,65 +181,8 @@
           </p>
         </section>
 
-        <section class="reading-section" aria-labelledby="cost-title">
-          <p class="chapter-number">04 · What it costs</p>
-          <h2 id="cost-title">Copies are never quite in step.</h2>
-
-          <h3>Lag is a queue, not a constant</h3>
-          <p>
-            Replicas fall behind under load, and the structural reason is unpleasant. On the primary, writes
-            are concurrent across many cores. On the replica, replay is largely <strong>serial</strong>. So lag
-            grows worst under exactly the traffic that made you want replicas &#8212; they are least
-            trustworthy at the moment you most need them.
-          </p>
-
-          <h3>A choice you cannot avoid, only make deliberately</h3>
-          <ul class="read-paths">
-            <li>
-              <strong>Asynchronous</strong> &#8212; the primary acknowledges your commit as soon as its
-              <em>own</em> log is safely written, without waiting for anyone. Fast, and replicas never affect
-              write latency. But if the primary dies before a replica catches up, those commits are
-              <strong>gone</strong>. You told the user "saved" and it was not.
-            </li>
-            <li>
-              <strong>Synchronous</strong> &#8212; the primary waits for a replica to confirm before
-              acknowledging. No data loss on failover. But if that replica is slow or unreachable,
-              <strong>writes stall entirely</strong>. You have coupled your write availability to a machine you
-              added for redundancy.
-            </li>
-          </ul>
-
-          <p class="transition-callout">
-            <strong>Async: you might lose data. Sync: you might lose availability.</strong>
-          </p>
-
-          <p>
-            Quorum softens it. Require <em>any one</em> of three to confirm, so a single slow replica cannot
-            stall you while two copies are still guaranteed:
-          </p>
-
-          <pre class="sql-block"><code>synchronous_standby_names = 'ANY 1 (replica1, replica2, replica3)'</code></pre>
-
-          <h3>And a bug that will reach your users</h3>
-          <p>
-            Someone posts a comment, which goes to the primary. The page reloads, that read goes to a replica
-            200 ms behind, and the comment is not there. So they post it again. Now there are two, and they
-            think your app is broken &#8212; they are right.
-          </p>
-          <p>
-            The fixes, in increasing order of effort: send a user&#8217;s reads to the primary for a few
-            seconds after they write; or record the log position at write time and require the replica to have
-            reached it, falling back to the primary if it has not.
-          </p>
-          <p>
-            The realisation underneath both is the one that matters:
-            <strong>"send reads to replicas" is not a configuration setting.</strong> It is an application
-            design decision, because only your product knows which reads can tolerate being slightly stale.
-          </p>
-        </section>
-
         <section class="reading-section" aria-labelledby="pays-title">
-          <p class="chapter-number">05 · Where it pays</p>
+          <p class="chapter-number">04 · Where it pays</p>
           <h2 id="pays-title">Six things a second copy can do.</h2>
           <ul class="read-paths">
             <li>
@@ -265,12 +214,13 @@
         </section>
 
         <section class="reading-section" aria-labelledby="not-title">
-          <p class="chapter-number">06 · What it does not fix</p>
+          <p class="chapter-number">05 · What it does not fix</p>
           <h2 id="not-title">More copies, same primary.</h2>
           <p>
             <strong>Write throughput.</strong> Every write still goes through the single primary &#8212; and
             now must additionally be shipped and replayed N times. Replicas make writes marginally
-            <em>worse</em>. If writes are your bottleneck, this is the wrong tool; that was lesson 06.
+            <em>worse</em>. If writes are your bottleneck, replication is not the answer — sharding is, and
+            that was the previous lesson.
           </p>
           <p>
             <strong>Your working set.</strong> Every replica holds the <strong>full dataset</strong>, so each
@@ -288,10 +238,25 @@
             consensus protocol, not a health check that noticed a timeout.
           </p>
 
+          <h3>So when two machines hold the same row, which one is right?</h3>
+          <p>
+            While the primary is alive, the answer is simple: <strong>the primary is, by definition.</strong>
+            It is the only machine permitted to accept writes, so it holds the newest version of everything. A
+            replica is behind it, never ahead of it. Which copy is authoritative is not a puzzle — it is a
+            rule, and the rule is the same every time.
+          </p>
+          <p>
+            The question only gets hard in two moments. <strong>When you read from a replica</strong>, you may
+            get an answer that was true a moment ago rather than one that is true now — and only your
+            product knows whether that is acceptable for that particular read. <strong>And when the primary
+            dies</strong>, the rule has nothing left to point at: some replica must be declared right, and
+            whatever it had not yet received is simply gone.
+          </p>
+
           <p class="transition-callout">
-            Which leaves the question this lesson has been circling. You now have several machines holding the
-            same row, updated at slightly different times, any of which might answer your next query.
-            <strong>When they disagree, which one is right?</strong>
+            Both are the same underlying question, and it is not really a database question:
+            <strong>what promise are you making about freshness, and to whom?</strong> Answering that
+            deliberately, per operation rather than per system, is the last lesson.
           </p>
 
           <blockquote class="dragon-line closing-line">
