@@ -14,8 +14,8 @@
     <meta name="twitter:description" content="Choose a shard key and learn the cost of many database machines." />
     <title>Lesson 06 · Across Many Keeps · Dungeons &amp; Databases</title>
     <link rel="stylesheet" href="../../styles.css?v=20260823n" />
-    <link rel="stylesheet" href="../lesson-shared.css?v=20260823k" />
-    <link rel="stylesheet" href="../lesson-reading.css?v=20260823l" />
+    <link rel="stylesheet" href="../lesson-shared.css?v=20260824b" />
+    <link rel="stylesheet" href="../lesson-reading.css?v=20260824c" />
     <link rel="stylesheet" href="./lesson.css?v=20260823d" />
     <script src="../../site.js?v=20260823l" defer></script>
   </head>
@@ -38,7 +38,7 @@
           <div class="lesson-tags" aria-label="Lesson concepts"><span>Shard keys</span><span>Routing</span><span>Fan-out</span><span>Rebalancing</span></div>
         </div>
         <aside class="dragon-counsel compact" aria-labelledby="opening-counsel">
-          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" width="1672" height="941" decoding="async" /></div>
+          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" width="1672" height="941" decoding="async" fetchpriority="high" /></div>
           <div><p class="eyebrow">The Dragon’s Counsel</p><blockquote id="opening-counsel">“You may build more keeps, keeper. Each will need its own foundation — and you, its gatekeeper.”</blockquote><p>The scribes asked for this in your first lesson. They were not wrong. They were early.</p></div>
         </aside>
       </section>
@@ -183,13 +183,12 @@
           <p class="chapter-number">04 · The shard key</p>
           <h2 id="key-title">A query must carry it, or it goes to every machine.</h2>
           <p>
-            You have now met this rule at every scale. An index only helps queries matching its leading column.
-            A partition only prunes if you filter on the partition key. A shard can only be targeted if the
-            query carries the shard key.
+            You met this rule with partitions, and it applies here with more force. A partition only prunes if
+            you filter on the partition key. A shard can only be targeted if the query carries the shard key.
           </p>
           <p>
-            The rule has not changed &#8212; but the penalty has grown from one extra page read, to a request
-            sent to every machine you own.
+            Same rule, one scale up — and the penalty has grown from opening every partition, to sending a
+            request to every machine you own.
           </p>
 
           <h3>A workable key needs three things</h3>

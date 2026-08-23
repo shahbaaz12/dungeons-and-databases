@@ -26,7 +26,7 @@
     />
     <meta name="twitter:image" content="https://shahbaaz12.github.io/dungeons-and-databases/public/og.png" />
     <title>Dungeons &amp; Databases · Split the Realm</title>
-    <link rel="stylesheet" href="./styles.css?v=20260823n" />
+    <link rel="stylesheet" href="./styles.css?v=20260824c" />
     <script src="./site.js?v=20260823l" defer></script>
   </head>
   <body class="home-page">
@@ -53,11 +53,16 @@
     <main id="main-content">
       <section class="hero section-shell">
         <div class="hero-copy">
-          <p class="eyebrow"><span>System design journey</span><span class="eyebrow-rule"></span></p>
-          <h1>Before you split the realm, learn what is breaking.</h1>
+          <p class="eyebrow"><span>A guided path &#183; nine lessons</span><span class="eyebrow-rule"></span></p>
+          <h1>The journey of one database, from its first slow query to its last shard.</h1>
           <p class="hero-lede">
-            Follow one growing database through slow queries, indexes, caches, replicas, partitions,
-            shards, and the consistency choices each step demands.
+            <strong>The realm</strong> is your database and everything depending on it.
+            <strong>Splitting it</strong> — across tables, then across machines — is the last and most
+            expensive thing you can do to it.
+          </p>
+          <p class="hero-lede">
+            This course is one growing database, and everything you should try first: what actually ran out,
+            the index that fixes it, what that index costs, and only then partitions, shards, and copies.
           </p>
 
           <div class="hero-actions">
@@ -69,8 +74,8 @@
 
           <dl class="journey-facts" aria-label="Course summary">
             <div><dt>8</dt><dd>guided lessons</dd></div>
+            <div><dt>1</dt><dd>bonus lesson</dd></div>
             <div><dt>1</dt><dd>evolving database</dd></div>
-            <div><dt>1</dt><dd>question at the gate</dd></div>
           </dl>
         </div>
 
@@ -117,9 +122,6 @@
             <strong>118% of memory</strong>
           </div>
 
-          <p class="stage-caption">
-            The system is slow. The cause is still unknown. Sharding now would be a guess.
-          </p>
         </div>
       </section>
 
@@ -129,22 +131,20 @@
           <i></i>
         </div>
         <div class="dragon-message">
-          <p class="eyebrow">The old dragon speaks</p>
+          <p class="eyebrow">The Old Dragon speaks</p>
           <h2 id="dragon-title">“A crowded vault and a broken vault are not the same thing.”</h2>
           <p>
             The scribes want twelve partitions before they have measured one bottleneck. Walk with me
             through the machinery beneath their tables. We will split nothing until we know what the split
             is meant to solve.
           </p>
-          <p class="dragon-signature">The Archivist, keeper of the deep ledger</p>
+          <p class="dragon-signature">The Old Dragon, keeper of the deep ledger</p>
         </div>
       </section>
 
       <section class="journey section-shell" id="journey" aria-labelledby="journey-title">
         <div class="section-heading">
-          <div>
-            <h2 id="journey-title">Every lesson adds one justified decision.</h2>
-          </div>
+          <h2 id="journey-title">Every lesson adds one justified decision.</h2>
           <p>
             We begin with symptoms, descend into database internals, and return with enough knowledge to
             choose between an index, a partition, a shard, and a replica.
@@ -268,7 +268,7 @@
           “When you leave this realm, you will not ask how to shard first. You will ask what has run out, and
           know which tool earns the right to fix it.”
         </blockquote>
-        <span>The Archivist</span>
+        <span>The Old Dragon</span>
       </section>
     </main>
 
