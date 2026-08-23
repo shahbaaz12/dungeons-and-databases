@@ -8,11 +8,11 @@
     <meta property="og:type" content="article" />
     <meta property="og:title" content="Copies of the Ledger · Dungeons &amp; Databases" />
     <meta property="og:description" content="Copy for reads, then pay attention to lag, durability, and failover." />
-    <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-05-copies-of-the-ledger/" />
+    <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-07-copies-of-the-ledger/" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Copies of the Ledger · Dungeons &amp; Databases" />
     <meta name="twitter:description" content="Replication turns capacity into a consistency problem." />
-    <title>Lesson 05 · Copies of the Ledger · Dungeons &amp; Databases</title>
+    <title>Lesson 07 · Copies of the Ledger · Dungeons &amp; Databases</title>
     <link rel="stylesheet" href="../../styles.css" />
     <link rel="stylesheet" href="../lesson-shared.css" />
     <link rel="stylesheet" href="../lesson-reading.css" />
@@ -27,7 +27,7 @@
         <span class="brand-copy"><strong>Dungeons &amp; Databases</strong><small>Split the Realm</small></span>
       </a>
       <div class="header-actions">
-        <span class="lesson-badge">Lesson 05</span><span class="lesson-header-name">Copy for reads</span>
+        <span class="lesson-badge">Lesson 07</span><span class="lesson-header-name">Copy for reads</span>
         <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme"><span aria-hidden="true" data-theme-icon>☀</span><span data-theme-label>Light</span></button>
       </div>
     </header>
@@ -35,11 +35,12 @@
     <main id="lesson-content">
       <section class="lesson-hero section-shell">
         <div class="lesson-hero-copy">
-          <p class="eyebrow">Lesson 05 · Copy for reads</p>
+          <p class="eyebrow">Lesson 07 · Copy for reads</p>
           <h1>One truth. More places to read it.</h1>
           <p>
-            A cache serves selected answers. Replication copies the database itself. Readers gain more machines,
-            while writers gain a new question: when is a change truly safe and visible everywhere?
+            Sharding gave you capacity, not survival. Replication keeps live copies of the same data on other
+            machines — which is not the same thing as a backup, and brings a question of its own: when two
+            machines hold the same row, which one is right?
           </p>
           <div class="lesson-tags" aria-label="Lesson concepts"><span>WAL</span><span>Replica lag</span><span>Read your writes</span><span>Failover</span></div>
         </div>
@@ -50,134 +51,254 @@
       </section>
 
       <article class="lesson-reading">
-        <section class="reading-section" aria-labelledby="copy-title">
-          <p class="chapter-number">01 · The copy</p>
-          <h2 id="copy-title">A primary writes. Replicas replay.</h2>
+        <section class="reading-section" aria-labelledby="left-title">
+          <p class="chapter-number">01 · Where sharding left you</p>
+          <h2 id="left-title">Capacity and survival are different problems.</h2>
           <p>
-            In the common arrangement, one <strong>primary</strong> accepts changes. One or more
-            <strong>replicas</strong> receive those changes and apply them to their own copy. The application
-            continues sending writes to the primary but can spread suitable reads across the replicas.
+            Four shards, four times the write capacity. And four machines that can fail.
           </p>
-
-          <div class="replica-map" aria-label="Primary database sending changes to two read replicas">
-            <div class="replica-primary"><span>Writes + critical reads</span><strong>Primary</strong><small>Own CPU · RAM · storage</small></div>
-            <div class="replica-branch" aria-hidden="true"><i></i><i></i></div>
-            <div class="replica-readers">
-              <div><span>Reads</span><strong>Replica A</strong><small>Own CPU · RAM · storage</small></div>
-              <div><span>Reads</span><strong>Replica B</strong><small>Own CPU · RAM · storage</small></div>
-            </div>
-          </div>
-
           <p>
-            Each replica owns another CPU, another buffer pool, and another storage device. That is real read
-            capacity. But all copies still contain the full data set, and every write still begins at one primary.
-            <mark class="quiet-highlight">Replication converts a capacity problem into a consistency problem.</mark>
+            When one goes down it does not take a quarter of your speed &#8212; it takes a quarter of your
+            <strong>answers</strong>. Every customer whose rows live there gets errors, and no amount of
+            capacity on the other three helps them.
+          </p>
+          <p>
+            <mark class="quiet-highlight">Sharding bought you room to grow. It bought nothing at all in the way
+            of survival.</mark>
           </p>
         </section>
 
-        <section class="reading-section" aria-labelledby="wal-title">
-          <p class="chapter-number">02 · How the copy moves</p>
-          <h2 id="wal-title">Replicas follow the write-ahead log.</h2>
+        <section class="reading-section" aria-labelledby="what-title">
+          <p class="chapter-number">02 · What replication is</p>
+          <h2 id="what-title">Continuously updated copies of the same data.</h2>
           <p>
-            PostgreSQL records each change in the <strong>write-ahead log</strong>, or WAL, before altered table
-            pages reach durable storage. Replication ships that ordered change stream to another server. The
-            replica replays it against its own copy, rebuilding the same database state.
+            <strong>Replication keeps continuously updated copies of the same data on other machines.</strong>
           </p>
           <p>
-            <strong>Physical replication</strong> sends storage-level changes and creates a close copy of the
-            whole cluster. <strong>Logical replication</strong> describes row-level changes for selected tables,
-            which allows a more selective or transformed subscriber. Both still have a sender, transport time,
-            and a receiver that must apply work.
+            One machine &#8212; the <strong>primary</strong> &#8212; accepts writes. One or more
+            <strong>replicas</strong> receive every change and apply it to their own copy, staying seconds or
+            milliseconds behind. Each replica is a complete, working database, not an archive.
           </p>
-          <div class="flow-panel" aria-label="Write ahead log replication path">
-            <span class="flow-label">The replay path</span>
-            <div class="flow-line"><div class="flow-node">Primary commit<small>append ordered WAL</small></div><span class="flow-arrow">→</span><div class="flow-node">Network stream<small>ship WAL records</small></div><span class="flow-arrow">→</span><div class="flow-node">Replica replay<small>apply in order</small></div></div>
-          </div>
-          <p class="source-note">PostgreSQL documents physical streaming replication in <a href="https://www.postgresql.org/docs/current/warm-standby.html">Warm Standby</a> and table-level logical replication in <a href="https://www.postgresql.org/docs/current/logical-replication.html">Logical Replication</a>.</p>
-        </section>
+          <p>
+            Notice what is different from every previous tool. Indexes, partitions, and shards all
+            <strong>divide</strong> data. Replication <strong>duplicates</strong> it. Sharding gave four
+            machines a quarter each; replication gives four machines the same thing, four times.
+          </p>
 
-        <section class="reading-section" aria-labelledby="ack-title">
-          <p class="chapter-number">03 · When may we answer?</p>
-          <h2 id="ack-title">The acknowledgement decides speed versus safety.</h2>
+          <h3>How the copy travels</h3>
           <p>
-            The application sees a successful write when PostgreSQL sends an acknowledgement. The question is
-            whether the primary may acknowledge after making the WAL durable on itself, or whether it must wait
-            for a replica too.
+            You already have the mechanism. Lesson 04 followed a write into the write-ahead log &#8212; the
+            ordered record of every change, written so a crash can be recovered by replaying it.
           </p>
-          <div class="comparison-grid">
-            <article><span>Asynchronous</span><strong>Primary answers first</strong><p>Writes stay fast and survive replica trouble, but a primary failure may lose commits the replica had not received.</p></article>
-            <article><span>Synchronous</span><strong>Wait for a replica</strong><p>A promoted replica has acknowledged commits, but network or replica trouble can stall application writes.</p></article>
-          </div>
           <p>
-            Synchronous replication can use a quorum such as <code>ANY 1</code>: wait for any one member of a
-            named replica set rather than one specific machine. It gives flexibility, not free certainty. Every
-            acknowledgement rule chooses a point among write latency, durability, and availability.
+            Replication is that same log, replayed somewhere else.
           </p>
-        </section>
 
-        <section class="reading-section" aria-labelledby="lag-title">
-          <p class="chapter-number">04 · The distance behind</p>
-          <h2 id="lag-title">Replica lag is a queue, not a mysterious delay.</h2>
+          <pre class="sql-block"><code>Primary:  write  →  WAL  →  commit
+                      │
+                      └──── stream ────►  Replica:  replay  →  same state</code></pre>
+
           <p>
-            The primary produces WAL. The replica receives and replays it. If the primary produces changes faster
-            than the replica can apply them, unapplied WAL accumulates. Lag is the depth of that queue, measured in
-            bytes, log positions, or time.
+            Nothing new was invented. The log that made your data durable now makes copies of it possible.
           </p>
-          <div class="lag-meter" aria-label="Replica replay queue">
-            <span>Already replayed</span><i class="lag-applied"></i><i class="lag-waiting"></i><strong>Waiting to replay</strong>
-          </div>
           <p>
-            Slow replica storage, heavy reads competing for resources, network interruption, or a burst of writes
-            can all deepen the queue. Replay must preserve dependency order; adding read replicas does not make the
-            primary’s write stream disappear.
+            It travels in one of two forms. <strong>Physical</strong> replication ships the log as raw bytes,
+            producing an exact copy of the whole cluster &#8212; simple and fast, but all-or-nothing.
+            <strong>Logical</strong> replication decodes it into row-level changes first, which costs more but
+            can be selective per table, work across versions, and be consumed by systems that are not
+            PostgreSQL at all &#8212; which is what change-data-capture pipelines and search-index syncing
+            actually are.
           </p>
         </section>
 
-        <section class="reading-section" aria-labelledby="ryw-title">
-          <p class="chapter-number">05 · The visible bug</p>
-          <h2 id="ryw-title">“I saved it, then it vanished.”</h2>
+        <section class="reading-section" aria-labelledby="backup-title">
+          <p class="chapter-number">03 · Isn&#8217;t that just a backup?</p>
+          <h2 id="backup-title">They fail in opposite directions.</h2>
           <p>
-            A customer changes their address. The write commits on the primary. The next page load is routed to a
-            replica that has not replayed that change, so the old address appears. The data was not lost; the
-            application violated the user’s expectation to <strong>read their own writes</strong>.
+            Both keep a second copy. So why not simply restore last night&#8217;s backup when a machine dies?
           </p>
-          <div class="table-wrap">
-            <table>
-              <caption>Three ways to preserve read-your-writes</caption>
-              <thead><tr><th>Technique</th><th>How it works</th><th>Tradeoff</th></tr></thead>
-              <tbody>
-                <tr><td>Sticky primary</td><td>After a write, keep that user’s reads on the primary for a short window.</td><td>Simple, but shifts more read load to the primary.</td></tr>
-                <tr><td>Log-position tracking</td><td>Record the commit LSN and use only a replica that has replayed at least that far.</td><td>Precise, but routing becomes smarter.</td></tr>
-                <tr><td>Entity routing</td><td>Read recently changed entities from the primary; send unrelated reads to replicas.</td><td>Targeted, but the application tracks affected data.</td></tr>
-              </tbody>
-            </table>
-          </div>
           <p>
-            Not every read needs the same rule. A public feed can tolerate brief lag; a confirmation screen usually
-            cannot. Route by the consistency the operation requires, not by a blanket “all reads go to replicas.”
+            Because the difference is not freshness or size. It is what each one is <em>for</em>.
+          </p>
+
+          <h3>A backup is a moment. A replica is a continuous state.</h3>
+          <p>
+            Your backup is 03:00 this morning. Your replica is 200 milliseconds ago.
+          </p>
+
+          <h3>Recovery times are not comparable</h3>
+          <p>
+            Restoring a large database means pulling it from cold storage, writing it out, replaying archived
+            log files, and rebuilding &#8212; hours, during which you are down. Promoting a replica means
+            telling a machine that is already running, already warm, and already holding the data to start
+            accepting writes. Seconds.
+          </p>
+
+          <h3>A replica does work; a backup does nothing</h3>
+          <p>
+            This part is underrated. A replica is a live database you can read from, so it adds capacity every
+            day, not only on the worst day. A backup is inert bytes you pay to store and hope never to use.
+          </p>
+
+          <h3>And now the one that settles it</h3>
+          <p>
+            Replication is <em>faithful</em>. That is the entire point of it &#8212; and it is also the
+            problem:
+          </p>
+
+          <pre class="sql-block"><code>DROP TABLE orders;</code></pre>
+
+          <p>
+            That statement reaches every replica in milliseconds. So does a bad migration, a buggy
+            <code>UPDATE</code> with a missing <code>WHERE</code>, and an application that quietly corrupts
+            rows for a week. Replicas do not protect you from any of it, because they are doing precisely
+            their job.
+          </p>
+          <p>
+            A backup from before the mistake is the only thing that saves you.
+          </p>
+
+          <p class="transition-callout">
+            <strong>Replication protects you from a machine failing. Backups protect you from yourself.</strong>
+          </p>
+
+          <p>
+            Two more consequences follow. <strong>Backups hold history; replicas hold only now.</strong>
+            "Restore this table to how it looked last Tuesday" is a backup question &#8212; a replica has been
+            faithfully overwriting last Tuesday ever since. And <strong>backups can be made
+            unreachable</strong>: stored offsite, in another account, immutable. A replica is by definition
+            connected to the primary, so whatever reached your primary can reach it too.
+          </p>
+          <p>
+            So the answer is that they answer different questions, and
+            <mark class="quiet-highlight">you need both.</mark>
           </p>
         </section>
 
-        <section class="reading-section" aria-labelledby="limits-title">
-          <p class="chapter-number">06 · What copies cannot buy</p>
-          <h2 id="limits-title">Read capacity rises. The write ceiling remains.</h2>
+        <section class="reading-section" aria-labelledby="cost-title">
+          <p class="chapter-number">04 · What it costs</p>
+          <h2 id="cost-title">Copies are never quite in step.</h2>
+
+          <h3>Lag is a queue, not a constant</h3>
           <p>
-            Replicas do not meaningfully increase write throughput: the primary still orders the writes, generates
-            WAL, and changes its pages. Replicas also do not shrink the working set, because each carries the full
-            database. They are copies for reads and recovery, not pieces of a divided data set.
+            Replicas fall behind under load, and the structural reason is unpleasant. On the primary, writes
+            are concurrent across many cores. On the replica, replay is largely <strong>serial</strong>. So lag
+            grows worst under exactly the traffic that made you want replicas &#8212; they are least
+            trustworthy at the moment you most need them.
           </p>
-          <p>
-            Failover is not merely “point traffic at the other server.” The system must prove the primary is dead,
-            promote exactly one replacement, and prevent the old primary from accepting writes when it returns.
-            Without <strong>fencing</strong> or a consensus-backed authority, two primaries can diverge—a split brain.
-          </p>
-          <ul class="lesson-list">
-            <li>Decide how much acknowledged data may be lost.</li>
-            <li>Measure replay lag under both write load and replica read load.</li>
-            <li>Define which reads require the primary or a caught-up replica.</li>
-            <li>Practice promotion and prove the old primary is fenced.</li>
+
+          <h3>A choice you cannot avoid, only make deliberately</h3>
+          <ul class="read-paths">
+            <li>
+              <strong>Asynchronous</strong> &#8212; the primary acknowledges your commit as soon as its
+              <em>own</em> log is safely written, without waiting for anyone. Fast, and replicas never affect
+              write latency. But if the primary dies before a replica catches up, those commits are
+              <strong>gone</strong>. You told the user "saved" and it was not.
+            </li>
+            <li>
+              <strong>Synchronous</strong> &#8212; the primary waits for a replica to confirm before
+              acknowledging. No data loss on failover. But if that replica is slow or unreachable,
+              <strong>writes stall entirely</strong>. You have coupled your write availability to a machine you
+              added for redundancy.
+            </li>
           </ul>
-          <blockquote class="dragon-line"><span>The Old Dragon</span>“A copy is useful only when the realm agrees which page is newest—and which scribe may still write.”</blockquote>
+
+          <p class="transition-callout">
+            <strong>Async: you might lose data. Sync: you might lose availability.</strong>
+          </p>
+
+          <p>
+            Quorum softens it. Require <em>any one</em> of three to confirm, so a single slow replica cannot
+            stall you while two copies are still guaranteed:
+          </p>
+
+          <pre class="sql-block"><code>synchronous_standby_names = 'ANY 1 (replica1, replica2, replica3)'</code></pre>
+
+          <h3>And a bug that will reach your users</h3>
+          <p>
+            Someone posts a comment, which goes to the primary. The page reloads, that read goes to a replica
+            200 ms behind, and the comment is not there. So they post it again. Now there are two, and they
+            think your app is broken &#8212; they are right.
+          </p>
+          <p>
+            The fixes, in increasing order of effort: send a user&#8217;s reads to the primary for a few
+            seconds after they write; or record the log position at write time and require the replica to have
+            reached it, falling back to the primary if it has not.
+          </p>
+          <p>
+            The realisation underneath both is the one that matters:
+            <strong>"send reads to replicas" is not a configuration setting.</strong> It is an application
+            design decision, because only your product knows which reads can tolerate being slightly stale.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="pays-title">
+          <p class="chapter-number">05 · Where it pays</p>
+          <h2 id="pays-title">Six things a second copy can do.</h2>
+          <ul class="read-paths">
+            <li>
+              <strong>Surviving a machine failure.</strong> A replica is promoted and the system continues.
+              This is the reason it exists.
+            </li>
+            <li>
+              <strong>Read capacity.</strong> Every replica is another CPU and another buffer pool answering
+              queries. For read-heavy applications &#8212; most applications &#8212; this is the cheapest
+              scaling move available.
+            </li>
+            <li>
+              <strong>Maintenance without downtime.</strong> Upgrade a replica, promote it, then rebuild the
+              old primary. The machinery that survives an accident also removes planned outages.
+            </li>
+            <li>
+              <strong>Reads closer to users.</strong> A replica in another region answers local reads without a
+              transatlantic round trip.
+            </li>
+            <li>
+              <strong>Feeding other systems.</strong> Logical replication keeps a search index, a warehouse, or
+              an event stream current without anyone polling your primary.
+            </li>
+            <li>
+              <strong>Keeping analytics off the primary.</strong> Long reporting queries run somewhere they
+              cannot evict the pages your transactional traffic depends on.
+            </li>
+          </ul>
+        </section>
+
+        <section class="reading-section" aria-labelledby="not-title">
+          <p class="chapter-number">06 · What it does not fix</p>
+          <h2 id="not-title">More copies, same primary.</h2>
+          <p>
+            <strong>Write throughput.</strong> Every write still goes through the single primary &#8212; and
+            now must additionally be shipped and replayed N times. Replicas make writes marginally
+            <em>worse</em>. If writes are your bottleneck, this is the wrong tool; that was lesson 06.
+          </p>
+          <p>
+            <strong>Your working set.</strong> Every replica holds the <strong>full dataset</strong>, so each
+            has an identical memory problem. If your working set is 500 GB and your machines have 128 GB of
+            RAM, ten replicas give you ten machines thrashing equally. Replication multiplies read
+            <em>throughput</em>, never memory <em>efficiency</em>.
+          </p>
+
+          <h3>And it introduces a failure with no clean answer</h3>
+          <p>
+            When the primary dies and a replica is promoted, the old primary may come back &#8212; and start
+            accepting writes too. Two machines, both convinced they are authoritative, both committing. That is
+            <strong>split-brain</strong>: two divergent histories, both "committed", frequently impossible to
+            reconcile. You pick a winner and lose the other side&#8217;s work. Preventing it needs fencing or a
+            consensus protocol, not a health check that noticed a timeout.
+          </p>
+
+          <p class="transition-callout">
+            Which leaves the question this lesson has been circling. You now have several machines holding the
+            same row, updated at slightly different times, any of which might answer your next query.
+            <strong>When they disagree, which one is right?</strong>
+          </p>
+
+          <blockquote class="dragon-line closing-line">
+            <span>The Old Dragon</span>
+            &#8220;A copy is useful only when the realm agrees which page is newest&#8212;and which scribe may still
+            write.&#8221;
+          </blockquote>
         </section>
       </article>
 
@@ -190,12 +311,12 @@
           <article><span>Our system now</span><strong>Primary · replicas · routing</strong><p>We added lag policy, acknowledgement choices, and a real failover procedure.</p></article>
         </div>
         <div class="next-gate">
-          <div><span>Next · Lesson 06</span><h3>Divide the Hoard</h3><p>Create physical boundaries inside one database, then see exactly what they can and cannot solve.</p></div>
-          <a class="button button-primary" href="../lesson-06-divide-the-hoard/">Continue the journey <b aria-hidden="true">→</b></a>
+          <div><span>Next · Lesson 08</span><h3>The Price of Many Realms</h3><p>Choose consistency per operation and finish with the full scaling decision matrix.</p></div>
+          <a class="button button-primary" href="../lesson-08-the-price-of-many-realms/">Continue the journey <b aria-hidden="true">→</b></a>
           <small>The source document turns next to partitioning.</small>
         </div>
       </section>
     </main>
-    <footer class="site-footer section-shell"><div><strong>Dungeons &amp; Databases</strong><p>A guided journey through database scaling.</p></div><div class="footer-links"><a href="../lesson-04-the-borrowed-memory/">← Previous lesson</a><a href="../../index.html">Return to the map</a></div></footer>
+    <footer class="site-footer section-shell"><div><strong>Dungeons &amp; Databases</strong><p>A guided journey through database scaling.</p></div><div class="footer-links"><a href="../lesson-06-across-many-keeps/">← Previous lesson</a><a href="../../index.html">Return to the map</a></div></footer>
   </body>
 </html>

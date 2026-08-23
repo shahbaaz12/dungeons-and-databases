@@ -8,11 +8,11 @@
     <meta property="og:type" content="article" />
     <meta property="og:title" content="Across Many Keeps · Dungeons &amp; Databases" />
     <meta property="og:description" content="Sharding raises the write ceiling by dividing data—and hands routing and coordination to the application." />
-    <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-07-across-many-keeps/" />
+    <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-06-across-many-keeps/" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Across Many Keeps · Dungeons &amp; Databases" />
     <meta name="twitter:description" content="Choose a shard key and learn the cost of many database machines." />
-    <title>Lesson 07 · Across Many Keeps · Dungeons &amp; Databases</title>
+    <title>Lesson 06 · Across Many Keeps · Dungeons &amp; Databases</title>
     <link rel="stylesheet" href="../../styles.css" />
     <link rel="stylesheet" href="../lesson-shared.css" />
     <link rel="stylesheet" href="../lesson-reading.css" />
@@ -23,13 +23,13 @@
     <a class="skip-link" href="#lesson-content">Skip to the lesson</a>
     <header class="site-header lesson-header">
       <a class="brand" href="../../index.html" aria-label="Return to Dungeons and Databases home"><span class="brand-mark" aria-hidden="true">D<span>&amp;</span>D</span><span class="brand-copy"><strong>Dungeons &amp; Databases</strong><small>Split the Realm</small></span></a>
-      <div class="header-actions"><span class="lesson-badge">Lesson 07</span><span class="lesson-header-name">Beyond one keep</span><button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme"><span aria-hidden="true" data-theme-icon>☀</span><span data-theme-label>Light</span></button></div>
+      <div class="header-actions"><span class="lesson-badge">Lesson 06</span><span class="lesson-header-name">Beyond one keep</span><button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme"><span aria-hidden="true" data-theme-icon>☀</span><span data-theme-label>Light</span></button></div>
     </header>
 
     <main id="lesson-content">
       <section class="lesson-hero section-shell">
         <div class="lesson-hero-copy">
-          <p class="eyebrow">Lesson 07 · Beyond one keep</p>
+          <p class="eyebrow">Lesson 06 · Beyond one keep</p>
           <h1>Split the data. Inherit the map.</h1>
           <p>
             Sharding places different rows on different database machines. It is the first tool in this journey
@@ -44,139 +44,281 @@
       </section>
 
       <article class="lesson-reading">
-        <section class="reading-section" aria-labelledby="real-split-title">
-          <p class="chapter-number">01 · The real split</p>
-          <h2 id="real-split-title">Each shard owns different data and different resources.</h2>
+        <section class="reading-section" aria-labelledby="left-title">
+          <p class="chapter-number">01 · Where partitioning left you</p>
+          <h2 id="left-title">The data was divided. The machine was not.</h2>
           <p>
-            A replica copies the whole database. A partition divides a table but remains on one instance. A
-            <strong>shard</strong> places one part of the data on one database machine and another part elsewhere.
-            Shard A and Shard B have separate CPUs, buffer pools, storage devices, WAL streams, and write locks.
+            Sixty partitions. A query for last month opens one of them and ignores the rest. Retention is a
+            <code>DROP</code>. Maintenance runs piece by piece.
           </p>
-          <div class="shard-map" aria-label="Application router directing three customers to three shards">
-            <div class="shard-router"><span>Application</span><strong>Shard router</strong><small>reads the key</small></div>
-            <div class="shard-lines" aria-hidden="true"><i></i><i></i><i></i></div>
-            <div class="shard-nodes"><div><span>Customers A–H</span><strong>Shard 1</strong></div><div><span>Customers I–Q</span><strong>Shard 2</strong></div><div><span>Customers R–Z</span><strong>Shard 3</strong></div></div>
-          </div>
           <p>
-            Writes for different shards can now proceed on different machines. This is why sharding meaningfully
-            raises the write ceiling. The cost is equally direct: the application must know where data lives, and
-            operations that once relied on one database boundary may cross several independent systems.
+            Now look at what those sixty pieces have in common. They share one buffer pool. One write-ahead
+            log. One CPU. One disk. One <code>fsync</code> queue. Splitting the table changed how much data
+            each <em>operation</em> had to consider &#8212; it did not change what those operations were
+            running <strong>on</strong>.
+          </p>
+
+          <h3>What if each piece had its own?</h3>
+          <p>
+            Not just its own file &#8212; its own memory, its own CPU, its own disk, its own log. Pieces that
+            do not queue behind each other, because there is nothing shared left to queue for.
+          </p>
+          <p>
+            That question is sharding.
+          </p>
+          <p>
+            <strong>Sharding splits your data across several independent databases, each owning a different
+            subset of the rows and serving it with its own hardware.</strong>
+          </p>
+          <p>
+            The column whose value decides which machine a row lives on is the <strong>shard key</strong>.
+            Shard <code>orders</code> by <code>customer_id</code> and every row for customer 84217 lives on one
+            machine &#8212; every read and every write for that customer goes there and nowhere else.
+          </p>
+          <p>
+            One practical difference before going further: there is no <code>CREATE TABLE ... SHARD BY</code>.
+            PostgreSQL has no built-in sharding. You are either running four separate databases and routing
+            between them in your application, or adopting something that does it for you &#8212; Citus, Vitess,
+            or a managed equivalent.
+          </p>
+          <p>
+            That is not a footnote.
+            <mark class="quiet-highlight">Partitioning is a schema decision. Sharding is an architecture.</mark>
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="writes-title">
+          <p class="chapter-number">02 · The one thing that improves writes</p>
+          <h2 id="writes-title">Reads can be made smaller. Writes cannot.</h2>
+          <p>
+            Everything so far has made <em>reads</em> cheaper. Indexes cut the pages a query touches.
+            Partitions remove whole regions from consideration. Even lesson 04 was about understanding write
+            cost, not reducing it.
+          </p>
+          <p>
+            None of them raised the write ceiling, and that is not an oversight.
+          </p>
+          <p>
+            A read can be narrowed until it touches almost nothing &#8212; find the row, read the page, done.
+            But every write has to be durable. It goes into the same log, gets flushed by the same disk, on the
+            same machine, in the same queue. You can make a write <em>cheaper</em> by dropping an index. You
+            cannot make it go somewhere else.
+          </p>
+          <p>
+            So on one machine there is a hard ceiling on commits per second, and no amount of reorganising the
+            data moves it. Sixty partitions do not give a server a second core.
+          </p>
+
+          <p class="transition-callout">
+            Sharding is the first thing here that changes the denominator:
+            <strong>it increases the total resources available to the database, and it is the only technique in
+            this course that raises the write ceiling.</strong>
+          </p>
+
+          <p>
+            Four shards means four write-ahead logs accepting commits, four buffer pools, four CPUs, four
+            disks. It multiplies roughly linearly &#8212; four shards is about four times the write capacity,
+            eight is about eight.
+          </p>
+          <p>
+            That is the whole reason to accept everything it costs, and the rest of this lesson is that cost.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="pays-title">
+          <p class="chapter-number">03 · Where it pays</p>
+          <h2 id="pays-title">Five problems only more machines can solve.</h2>
+
+          <h3>1. Write throughput beyond one machine</h3>
+          <p>
+            The case sharding exists for. Orders arrive faster than one server can commit them. The indexes are
+            right, the partitions prune, the reports are quick &#8212; and the machine is still saturated,
+            because every insert queues for the same <code>fsync</code> on the same disk.
+          </p>
+          <p>
+            Nothing on that machine will help. Four shards give you four independent commit paths, and the
+            queue divides. Worth stating precisely: <strong>if reads are your problem, sharding is an expensive
+            way to solve something an index or a partition would have handled.</strong> It earns its cost only
+            when writes are what ran out.
+          </p>
+
+          <h3>2. A working set larger than any single machine&#8217;s RAM</h3>
+          <p>
+            Partitioning shrinks the hot slice so it fits in memory. But if your genuinely hot data &#8212; the
+            rows queried constantly, right now &#8212; exceeds the RAM of the largest machine you can buy,
+            partitioning has nothing left to give. It cannot add a gigabyte.
+          </p>
+          <p>
+            Sharding can. Four machines hold a quarter of the data each and bring their own memory, so total
+            buffer pool multiplies while the per-machine working set shrinks. You gain twice.
+          </p>
+
+          <h3>3. Data larger than one machine&#8217;s disk</h3>
+          <p>
+            The simplest case, and the least interesting once you see it. At some point the dataset does not
+            fit on one server. Sharding is how a database outgrows a single disk without moving to a different
+            kind of system entirely.
+          </p>
+
+          <h3>4. Isolating a large or noisy tenant</h3>
+          <p>
+            In a multi-tenant system, one customer eventually becomes a problem &#8212; a third of the traffic,
+            or a workload that evicts everyone else&#8217;s pages from the buffer pool.
+          </p>
+          <p>
+            With directory-based routing you can move that tenant onto a shard of their own. Their heavy
+            queries stop affecting everyone else, and you can size their machine differently. This is a real,
+            common reason to shard that has nothing to do with total volume.
+          </p>
+
+          <h3>5. Placing data geographically</h3>
+          <p>
+            Shards do not have to live in the same place. European customers on European infrastructure, US
+            customers on US infrastructure, routed by the same shard key. Latency improves for both, and
+            data-residency requirements become a routing rule rather than a separate system.
           </p>
         </section>
 
         <section class="reading-section" aria-labelledby="key-title">
-          <p class="chapter-number">02 · The irreversible question</p>
-          <h2 id="key-title">Which value decides where every row lives?</h2>
+          <p class="chapter-number">04 · The shard key</p>
+          <h2 id="key-title">A query must carry it, or it goes to every machine.</h2>
           <p>
-            The <strong>shard key</strong> is the input to the routing decision. A strong key has high cardinality,
-            spreads load evenly, and appears naturally in common queries. Those goals often pull against each other.
+            You have now met this rule at every scale. An index only helps queries matching its leading column.
+            A partition only prunes if you filter on the partition key. A shard can only be targeted if the
+            query carries the shard key.
           </p>
-          <div class="key-triad" aria-label="Three qualities of a shard key">
-            <article><span>01</span><strong>Many values</strong><p>Enough distinct keys to divide the data into useful pieces.</p></article>
-            <article><span>02</span><strong>Even work</strong><p>No single value should own most rows or most traffic.</p></article>
-            <article><span>03</span><strong>Known at query time</strong><p>Requests should arrive with the key so they can reach one shard.</p></article>
-          </div>
           <p>
-            <code>customer_id</code> is often a good fit for a multi-tenant orders system because most operations
-            already belong to one customer. A timestamp may appear in every query but send all new writes to the
-            newest range. Random order IDs distribute well but make “all orders for this customer” a multi-shard
-            request. <mark class="quiet-highlight">A shard key is a query-design decision, not just a distribution formula.</mark>
+            The rule has not changed &#8212; but the penalty has grown from one extra page read, to a request
+            sent to every machine you own.
           </p>
+
+          <h3>A workable key needs three things</h3>
+          <ul class="read-paths">
+            <li>
+              <strong>Many distinct values</strong>, enough to spread across the shards you will eventually
+              have &#8212; not just the ones you have today.
+            </li>
+            <li>
+              <strong>Even spread</strong>, so no single value owns a large share of the rows or the traffic.
+            </li>
+            <li>
+              <strong>Presence in your common queries</strong>, or they fan out to all of them.
+            </li>
+          </ul>
+          <p>
+            These pull against each other. A random UUID distributes flawlessly and aligns with nothing. A
+            <code>tenant_id</code> aligns with every query in a SaaS application and distributes terribly the
+            moment one customer grows. Resolving that tension <em>is</em> the design work.
+          </p>
+
+          <h3>How keys map to machines</h3>
+          <ul class="read-paths">
+            <li>
+              <strong>Range</strong> &#8212; shard 1 takes A&#8211;F, shard 2 takes G&#8211;M. Ordered scans stay
+              efficient, but a sequential key sends every new row to the last shard, and you have built a
+              distributed system where one machine does all the writing.
+            </li>
+            <li>
+              <strong>Hash</strong> &#8212; <code>hash(key) mod N</code>. Spreads beautifully until you change
+              N. Going from four shards to five re-maps roughly three quarters of your rows, all of which must
+              move while the system serves traffic. Not wrong on the day you build it; wrong on the day you
+              grow.
+            </li>
+            <li>
+              <strong>Consistent hashing</strong> &#8212; keys and shards both placed on a ring, each key
+              belonging to the next shard clockwise. Adding a shard moves only about 1/N of the keys. This
+              exists specifically to fix the problem above.
+            </li>
+            <li>
+              <strong>Directory</strong> &#8212; an explicit lookup table recording where each key lives. Costs
+              more and becomes a critical dependency, but it is the only option that lets you move one
+              particular customer. Common in real multi-tenant systems for exactly that reason.
+            </li>
+          </ul>
         </section>
 
-        <section class="reading-section" aria-labelledby="routing-title">
-          <p class="chapter-number">03 · The map</p>
-          <h2 id="routing-title">Routing decides both balance and movement.</h2>
-          <div class="table-wrap">
-            <table>
-              <caption>Common ways to turn a key into a shard</caption>
-              <thead><tr><th>Strategy</th><th>Strength</th><th>Cost</th></tr></thead>
-              <tbody>
-                <tr><td>Range</td><td>Range queries stay together and routing is easy to explain.</td><td>Sequential keys create a hot newest range.</td></tr>
-                <tr><td>Modulo hash</td><td><code>hash(key) % N</code> distributes stable keys simply.</td><td>Changing four shards to five remaps roughly 75% of keys.</td></tr>
-                <tr><td>Consistent hash</td><td>Adding a shard moves roughly <code>1/N</code> of the key space.</td><td>Virtual nodes are needed to smooth uneven ranges and machine sizes.</td></tr>
-                <tr><td>Directory</td><td>A lookup table can move one tenant or give it a dedicated shard.</td><td>The directory becomes critical routing infrastructure.</td></tr>
-              </tbody>
-            </table>
-          </div>
+        <section class="reading-section" aria-labelledby="give-title">
+          <p class="chapter-number">05 · What you give up</p>
+          <h2 id="give-title">One database gave you guarantees you never had to think about.</h2>
           <p>
-            There is no universal winner. Stable uniform tenants may fit consistent hashing. A SaaS product with a
-            few enormous customers may need a directory so one tenant can be moved deliberately. The design must
-            explain how routing information is cached, updated, recovered, and kept consistent during movement.
+            Four cannot, because nothing sits above them that understands all four.
           </p>
-        </section>
 
-        <section class="reading-section" aria-labelledby="query-title">
-          <p class="chapter-number">04 · What one database used to do</p>
-          <h2 id="query-title">Queries without the key become distributed work.</h2>
-          <p>
-            If a request includes the shard key, the router can send it to one machine. If it asks for “the newest
-            100 orders in the whole system” without a key, every shard may need to search locally, return candidates,
-            and let the application merge and sort them. That is <strong>scatter-gather</strong>.
-          </p>
-          <p>
-            Cross-shard joins no longer look like ordinary SQL joins. Teams typically avoid them by keeping related
-            rows on the same shard, duplicating small reference data, denormalizing a read model, or joining results
-            in application code. Cross-shard transactions require coordination such as two-phase commit, where one
-            failed participant can leave resources locked while everyone waits for a decision.
-          </p>
-          <div class="comparison-grid">
-            <article><span>Key present</span><strong>One route · one database</strong><p>Local joins, local transactions, and predictable latency remain possible.</p></article>
-            <article><span>Key absent</span><strong>Fan out · merge results</strong><p>Cost and tail latency grow with the number of shards contacted.</p></article>
-          </div>
-          <p>
-            Even IDs become architectural. Random UUIDv4 values avoid a central generator but scatter inserts
-            through B-tree leaves. UUIDv7, ULID, and Snowflake-style identifiers keep time order while remaining
-            globally unique enough for distributed creation.
-          </p>
-        </section>
+          <ul class="read-paths">
+            <li>
+              <strong>Queries without the shard key go everywhere.</strong> They must be sent to every shard and
+              combined, so your answer arrives no faster than the <em>slowest</em> machine. Occasional slowness
+              anywhere becomes routine slowness for you.
+            </li>
+            <li>
+              <strong>Joins across shards stop working.</strong> A database can join two tables in one file. It
+              cannot join a table on one machine to a table on another. You denormalise, copy small reference
+              tables to every shard, or fetch both sides and join in application memory.
+            </li>
+            <li>
+              <strong>Transactions no longer span everything.</strong> "All or nothing" across two machines
+              needs coordination that is slow and fails badly &#8212; if the coordinator dies mid-commit,
+              participants hold locks waiting for a verdict that never comes. Most successful systems refuse
+              the problem instead, choosing a key that keeps transactions inside one shard.
+            </li>
+            <li>
+              <strong>Even spread is not even load.</strong> Hashing distributes rows. It knows nothing about
+              traffic. Your hash function can be perfect and your cluster still lopsided.
+            </li>
+            <li>
+              <strong>Growing means moving live data.</strong> Adding a shard is not a configuration change.
+              Rows must be copied, kept in sync while both copies serve traffic, verified, and cut over without
+              losing writes in the middle. Plan it before you need it, because you will need it under pressure.
+            </li>
+          </ul>
 
-        <section class="reading-section" aria-labelledby="tail-title">
-          <p class="chapter-number">05 · Balance is more than row count</p>
-          <h2 id="tail-title">One hot tenant can own an otherwise even shard.</h2>
+          <h3>Global uniqueness gets harder &#8212; again</h3>
           <p>
-            A hash can spread keys evenly while traffic remains uneven. One enterprise tenant may generate more
-            work than ten thousand small tenants. That tenant can saturate its shard while the others remain quiet.
-            It may need a dedicated shard or a second-level split within the tenant.
+            You met a version of this with partitioning: a unique constraint had to include the partition key,
+            because each partition&#8217;s index could only enforce uniqueness locally.
           </p>
           <p>
-            Fan-out magnifies slow tails too. If each shard has a 99% chance of responding within the target, a
-            request waiting for 100 shards has only <code>0.99¹⁰⁰ ≈ 36.6%</code> chance that every shard stays within
-            it. In other words, roughly 63% of those requests encounter at least one slow shard.
+            Sharding is that problem without the escape hatch. There is no cross-shard index at all, and
+            <code>bigserial</code> cannot work because two shards would issue the same value. You need
+            externally generated IDs, and the choice matters: <code>UUIDv4</code> is random, which scatters
+            inserts across the B-tree and causes constant page splits, while <code>UUIDv7</code>, ULID, and
+            Snowflake embed a timestamp and land together at the right edge of the index.
           </p>
-          <div class="tail-math" aria-label="Tail latency probability across 100 shards"><span>Per-shard success</span><strong>99%</strong><i>raised across 100 shards</i><span>All within target</span><strong>36.6%</strong></div>
-          <p>
-            This is why a shard count is not merely a capacity number. Every added destination changes the cost of
-            global queries, observability, backups, migrations, and incident response.
-          </p>
-        </section>
-
-        <section class="reading-section" aria-labelledby="move-title">
-          <p class="chapter-number">06 · Moving a live boundary</p>
-          <h2 id="move-title">Rebalancing is a migration, not a copy command.</h2>
-          <p>
-            Eventually a shard grows too large or one tenant must move. Copying its old rows is only the beginning,
-            because new writes continue during the copy. A safe migration usually establishes a period in which the
-            old and new locations cannot silently diverge.
-          </p>
-          <ol class="migration-steps">
-            <li><span>01</span><div><strong>Prepare and dual-write</strong><p>Create the destination and ensure new changes reach both locations or enter a replayable change stream.</p></div></li>
-            <li><span>02</span><div><strong>Backfill history</strong><p>Copy existing rows in bounded batches while ordinary traffic continues.</p></div></li>
-            <li><span>03</span><div><strong>Verify</strong><p>Compare counts, checksums, and recent writes until the destination is demonstrably complete.</p></div></li>
-            <li><span>04</span><div><strong>Cut over and clean up</strong><p>Change the route, watch errors and lag, then remove the old copy only after the rollback window closes.</p></div></li>
-          </ol>
         </section>
 
         <section class="reading-section" aria-labelledby="last-title">
-          <p class="chapter-number">07 · The final threshold</p>
-          <h2 id="last-title">Shard only after the single-machine remedies earn their limits.</h2>
+          <p class="chapter-number">06 · When to shard, and what it does not fix</p>
+          <h2 id="last-title">Capacity and survival are different problems.</h2>
           <p>
-            First fix the access path. Then consider caching repeated answers, replicas for read load, partitions for
-            pruning and lifecycle, and a larger machine when it buys simple headroom. Sharding is justified when the
-            measured limit is truly the write, storage, or working-set capacity of one database—and the application
-            is ready to own routing and distributed operations.
+            Shard last. Genuinely last &#8212; it is the only tool here that raises the write ceiling, and the
+            only one that is close to irreversible. Every feature you build afterwards has to respect it.
           </p>
-          <blockquote class="dragon-line"><span>The Old Dragon</span>“Split last. Once every question needs a map, simplicity itself has become the treasure you spent.”</blockquote>
+          <p>
+            The order of the work is the order of this course: fix the queries and the indexes, drop the
+            indexes nobody uses, partition where the data has a natural boundary,
+            <strong>buy a bigger machine</strong> &#8212; badly underrated, since a large modern server costs
+            less than the engineering months sharding consumes &#8212; and only then shard.
+          </p>
+
+          <h3>And it buys capacity, not safety</h3>
+          <p>
+            Four machines are four things that can fail, and a shard going down takes its share of the data
+            with it &#8212; not a quarter of your latency,
+            <mark class="quiet-highlight">a quarter of your answers.</mark> In availability terms you have made
+            things worse: there are now four ways to be partly down instead of one way to be fully up.
+          </p>
+
+          <p class="transition-callout">
+            Solving that means keeping more than one copy of the same data &#8212; which is replication, and it
+            brings a question sharding never had to ask: when two machines hold the same row, which one is
+            right?
+          </p>
+
+          <blockquote class="dragon-line closing-line">
+            <span>The Old Dragon</span>
+            &#8220;You have many keeps now, and no single gatekeeper who knows them all. That knowledge is yours to
+            carry, keeper &#8212; forever.&#8221;
+          </blockquote>
         </section>
       </article>
 
@@ -189,12 +331,12 @@
           <article><span>Our system now</span><strong>Router · shards · migrations</strong><p>Every request carries placement and consistency consequences.</p></article>
         </div>
         <div class="next-gate">
-          <div><span>Next · Lesson 08</span><h3>The Price of Many Realms</h3><p>Choose consistency per operation and finish with the full scaling decision matrix.</p></div>
-          <a class="button button-primary" href="../lesson-08-the-price-of-many-realms/">Enter the final lesson <b aria-hidden="true">→</b></a>
+          <div><span>Next · Lesson 07</span><h3>Copies of the Ledger</h3><p>Copy the whole database so reads can scale too — and meet the lag that copying creates.</p></div>
+          <a class="button button-primary" href="../lesson-07-copies-of-the-ledger/">Enter the final lesson <b aria-hidden="true">→</b></a>
           <small>The source document closes by naming the consistency bill.</small>
         </div>
       </section>
     </main>
-    <footer class="site-footer section-shell"><div><strong>Dungeons &amp; Databases</strong><p>A guided journey through database scaling.</p></div><div class="footer-links"><a href="../lesson-06-divide-the-hoard/">← Previous lesson</a><a href="../../index.html">Return to the map</a></div></footer>
+    <footer class="site-footer section-shell"><div><strong>Dungeons &amp; Databases</strong><p>A guided journey through database scaling.</p></div><div class="footer-links"><a href="../lesson-05-divide-the-hoard/">← Previous lesson</a><a href="../../index.html">Return to the map</a></div></footer>
   </body>
 </html>

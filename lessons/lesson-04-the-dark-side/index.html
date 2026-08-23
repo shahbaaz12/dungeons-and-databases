@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="How PostgreSQL writes really work: the write-ahead log, dirty pages, checkpoints, write amplification, and why every extra index is paid for on every write."
+    />
+    <meta name="theme-color" content="#0b0d0c" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="The Dark Side · Dungeons &amp; Databases" />
+    <meta property="og:description" content="Every index is a promise you renew on every write. Learn what that promise costs." />
+    <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-04-the-dark-side/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="The Dark Side · Dungeons &amp; Databases" />
+    <meta name="twitter:description" content="Every index is a promise you renew on every write. Learn what that promise costs." />
+    <title>Lesson 04 · The Dark Side · Dungeons &amp; Databases</title>
+    <link rel="stylesheet" href="../../styles.css" />
+    <link rel="stylesheet" href="../lesson-shared.css" />
+    <link rel="stylesheet" href="../lesson-reading.css" />
+    <link rel="stylesheet" href="./lesson.css" />
+    <script src="../../site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#lesson-content">Skip to the lesson</a>
+
+    <header class="site-header lesson-header">
+      <a class="brand" href="../../index.html" aria-label="Return to Dungeons and Databases home">
+        <span class="brand-mark" aria-hidden="true">D<span>&amp;</span>D</span>
+        <span class="brand-copy">
+          <strong>Dungeons &amp; Databases</strong>
+          <small>Split the Realm</small>
+        </span>
+      </a>
+
+      <div class="header-actions">
+        <span class="lesson-badge">Lesson 04</span>
+        <span class="lesson-header-name">The Dark Side</span>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme">
+          <span aria-hidden="true" data-theme-icon>☀</span>
+          <span data-theme-label>Light</span>
+        </button>
+      </div>
+    </header>
+
+    <main id="lesson-content">
+      <section class="lesson-hero section-shell">
+        <div class="lesson-hero-copy">
+          <p class="eyebrow">Lesson 04 · The Dark Side</p>
+          <h1>Every map you keep must be redrawn on every write.</h1>
+          <p>
+            Lesson 03 handed you a power that felt free. It is not. The index is a promise that it will always
+            be correct — and that promise is renewed, at a cost, every single time the data changes.
+          </p>
+          <div class="lesson-tags" aria-label="Lesson concepts">
+            <span>Write path</span><span>WAL</span><span>Dirty pages</span><span>Write amplification</span>
+          </div>
+        </div>
+
+        <aside class="dragon-counsel compact" aria-labelledby="opening-counsel">
+          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
+          <div>
+            <p class="eyebrow">The Dragon’s Counsel</p>
+            <blockquote id="opening-counsel">
+              “I gave you one map and you were grateful. You made ten, and now you serve them.”
+            </blockquote>
+            <p>A map nobody reads is still redrawn every time the vault changes.</p>
+          </div>
+        </aside>
+      </section>
+
+      <article class="lesson-reading">
+        <section class="reading-section" aria-labelledby="bill-title">
+          <p class="chapter-number">01 · The bill</p>
+          <h2 id="bill-title">Reads got cheaper. Something had to get more expensive.</h2>
+          <p>
+            Return to the vault. You keep 100 scrolls below, 10 slots on the desk, and now a small map that
+            tells you where every scroll lives. Reading became almost free.
+          </p>
+          <p>
+            Now <em>write</em> something. Add a new scroll to the vault. The scroll itself must be stored —
+            but the map is now <strong>wrong</strong>, and a wrong map is worse than no map at all. So the map
+            must be fetched, corrected, and written back too.
+          </p>
+          <p>
+            One logical change, two physical pieces of work. Keep three maps instead of one and it becomes
+            four. <mark class="quiet-highlight">Every index you create is a tax collected on every write,
+            forever.</mark>
+          </p>
+          <p>
+            That is the last time this lesson borrows the vault. To see exactly where the tax goes, we follow a
+            write the way lesson 02 followed a read — in real terms: pages, the buffer pool, and the log. The
+            path is stranger than most people expect.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="where-title">
+          <p class="chapter-number">02 · Where a write actually goes</p>
+          <h2 id="where-title">A committed write has not touched your table file.</h2>
+          <p>
+            The intuitive model is that <code>UPDATE</code> writes to the table on disk. It does not. A write
+            modifies a <strong>page in the buffer pool</strong> — the same pool, the same slots, the same
+            clock sweep that serves your reads.
+          </p>
+          <p>
+            Which produces a consequence almost nobody predicts:
+            <strong>to write a page, you must first read it.</strong> You cannot modify a page you do not
+            have in memory. If it is not already in the buffer pool, the write path performs a
+            disk <em>read</em> first, and only then changes it.
+          </p>
+
+          <p class="transition-callout">
+            Writes generate read I/O. A write-heavy workload competes for buffer slots exactly like a
+            read-heavy one — and evicts the pages your queries wanted.
+          </p>
+
+          <p>
+            A page that has been modified in memory but not yet written back to disk is called
+            <strong>dirty</strong>. At the moment your transaction commits, the changed page is still sitting
+            in the buffer pool, dirty, and the table file on disk is untouched.
+          </p>
+          <p>
+            Which raises the obvious question: if the data is only in volatile memory, what makes the commit
+            durable? Pull the power cord and RAM forgets everything.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="wal-title">
+          <p class="chapter-number">03 · One write, step by step</p>
+          <h2 id="wal-title">Follow a single change through all four places it can live.</h2>
+          <p>
+            A row on <strong>page 17</strong> currently holds the value <strong>100</strong>. We are going to
+            change it to <strong>90</strong>. To see what durability actually costs, watch four locations at
+            once &#8212; two in memory, two on disk.
+          </p>
+
+          <ul class="read-paths">
+            <li><strong>WAL buffer (RAM)</strong> &#8212; a small staging area for journal lines not yet flushed.</li>
+            <li><strong>Buffer pool (RAM)</strong> &#8212; the page slots from lesson 02, where reads and writes both happen.</li>
+            <li><strong>WAL file (disk)</strong> &#8212; the durable journal, written by appending only.</li>
+            <li><strong>Table file (disk)</strong> &#8212; the table itself, the thing you probably think of as "the database".</li>
+          </ul>
+
+          <div class="table-wrap">
+            <table class="wal-trace">
+              <caption>One UPDATE, traced across memory and disk</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Step</th>
+                  <th scope="col">WAL buffer <small>RAM</small></th>
+                  <th scope="col">Buffer pool <small>RAM</small></th>
+                  <th scope="col">WAL file <small>disk</small></th>
+                  <th scope="col">Table file <small>disk</small></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">1 · Load page 17 into memory</th>
+                  <td>empty</td>
+                  <td>page 17 · 100 · clean</td>
+                  <td>&#8212;</td>
+                  <td>100</td>
+                </tr>
+                <tr>
+                  <th scope="row">2 · Write the journal line into the WAL buffer</th>
+                  <td>"p17 &#8594; 90"</td>
+                  <td>page 17 · 100 · clean</td>
+                  <td>&#8212;</td>
+                  <td>100</td>
+                </tr>
+                <tr>
+                  <th scope="row">3 · Change the page in memory</th>
+                  <td>"p17 &#8594; 90"</td>
+                  <td>page 17 · 90 · <em>dirty</em></td>
+                  <td>&#8212;</td>
+                  <td>100</td>
+                </tr>
+                <tr class="win">
+                  <th scope="row">4 · COMMIT &#8212; flush the WAL buffer to disk</th>
+                  <td>emptied</td>
+                  <td>page 17 · 90 · <em>dirty</em></td>
+                  <td>"p17 &#8594; 90"</td>
+                  <td>100</td>
+                </tr>
+                <tr>
+                  <th scope="row">5 · Return "OK" to the user</th>
+                  <td>empty</td>
+                  <td>page 17 · 90 · <em>dirty</em></td>
+                  <td>"p17 &#8594; 90"</td>
+                  <td>100</td>
+                </tr>
+                <tr>
+                  <th scope="row">6 · Later, a checkpoint</th>
+                  <td>empty</td>
+                  <td>page 17 · 90 · clean</td>
+                  <td>"p17 &#8594; 90"</td>
+                  <td>90</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Steps 1 to 3 never touch the disk</h3>
+          <p>
+            Everything so far happens in RAM. A crash at this point loses the change completely &#8212; and
+            that is <em>correct</em>, because you have not committed yet. Nothing was promised, so nothing was
+            broken.
+          </p>
+
+          <h3>Step 4 is the only disk write the commit waits for</h3>
+          <p>
+            Not the page. The <strong>journal line</strong>. One small append to a file that is only ever
+            written sequentially, followed by an <code>fsync</code> to force it out of the operating
+            system&#8217;s cache and onto the physical device.
+          </p>
+          <p>
+            This is the whole reason the design exists. The changed pages are scattered across a huge table
+            file &#8212; page 17 here, page 904,113 there. Writing them at commit time would mean slow
+            <strong>random</strong> writes. Appending one line to the end of the log is a fast
+            <strong>sequential</strong> write, and it costs the same whether the transaction dirtied one page
+            or fifty.
+          </p>
+
+          <h3>Step 5 is the part that surprises people</h3>
+          <p>
+            The user has been told the change is saved. The table file on disk
+            <strong>still says 100</strong>. If the power failed one microsecond later, recovery would replay
+            the journal line and reconstruct the change. <mark class="quiet-highlight">The journal line is the
+            only durable evidence that anything happened.</mark>
+          </p>
+
+          <h3>Step 6 quietly reconciles the two</h3>
+          <p>
+            At a checkpoint, background processes write the dirty pages out. Page 17 becomes clean, the table
+            file finally says 90, and the journal lines describing it are no longer needed for recovery.
+          </p>
+
+          <p class="transition-callout">
+            The page is what queries read. The WAL is what survives a crash. Neither can do the other&#8217;s
+            job &#8212; a query cannot be answered from the log, and RAM cannot survive a power cut.
+          </p>
+
+          <p class="source-note">
+            PostgreSQL documents this design in
+            <a href="https://www.postgresql.org/docs/current/wal-intro.html">Write-Ahead Logging (WAL)</a>.
+            The same log turns out to be what makes replication possible too, which is a debt lesson 07
+            settles.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="trace-title">
+          <p class="chapter-number">04 · The same write, with indexes</p>
+          <h2 id="trace-title">Now count what each extra index adds to that trace.</h2>
+          <p>
+            The walkthrough above assumed a table with no indexes, and it dirtied exactly one page. Add
+            indexes and step 3 stops being a single action.
+          </p>
+          <p>
+            PostgreSQL does not overwrite a row in place. It writes a <strong>new version</strong> of the row
+            and marks the old one dead, so that concurrent readers still see a consistent snapshot. The new
+            version sits at a new physical location &#8212; which means every index pointing at that row now
+            points at the wrong place, and must be corrected.
+          </p>
+          <p>
+            Correcting an index means descending its tree to find the right leaf page, then modifying that
+            leaf. Each one is another page pulled into the buffer pool, another page marked dirty, and another
+            journal line in the WAL.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <caption>Pages dirtied by one row change</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Indexes on the table</th>
+                  <th scope="col">Table pages</th>
+                  <th scope="col">Index leaf pages</th>
+                  <th scope="col">Total pages dirtied</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="win">
+                  <th scope="row">None</th>
+                  <td class="numeric">1</td>
+                  <td class="numeric">0</td>
+                  <td class="numeric">1</td>
+                </tr>
+                <tr>
+                  <th scope="row">One</th>
+                  <td class="numeric">1</td>
+                  <td class="numeric">1</td>
+                  <td class="numeric">2</td>
+                </tr>
+                <tr>
+                  <th scope="row">Three</th>
+                  <td class="numeric">1</td>
+                  <td class="numeric">3</td>
+                  <td class="numeric">4</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p>
+            That gap between <em>one logical change</em> and <em>four physical pages</em> is called
+            <strong>write amplification</strong>, and it grows in a straight line with the number of indexes
+            you keep. The commit still waits for only one WAL flush &#8212; but the checkpoint now has four
+            pages to write instead of one, and the buffer pool is holding four dirty pages instead of one.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="ledger-title">
+          <p class="chapter-number">05 · Closing the ledger</p>
+          <h2 id="ledger-title">Writes are cheap to promise and expensive to keep.</h2>
+          <p>
+            Three things are worth carrying out of this lesson, and they all follow from the same trace.
+          </p>
+
+          <h3>A commit is a promise, not a filing</h3>
+          <p>
+            When the database says <em>saved</em>, your table file on disk has not been touched. What exists
+            is one line appended to the write-ahead log. The page still sits in memory, dirty, waiting for a
+            checkpoint that may be minutes away. That is not a shortcut or a risk — the log is what makes
+            the promise keepable, and replaying it after a crash reconstructs everything.
+          </p>
+
+          <h3>The commit is fast because it defers almost everything</h3>
+          <p>
+            One small sequential append and one flush, no matter how many pages the transaction dirtied. That
+            is why writes feel quick even on a busy table. But <strong>deferred is not cancelled.</strong>
+            Every page you dirtied still has to reach disk eventually, and something has to carry it there.
+          </p>
+
+          <h3>Indexes multiply the deferred half, not the visible half</h3>
+          <p>
+            This is the part that makes over-indexing so easy to get wrong. Add three indexes and one row
+            change dirties four pages instead of one — but the commit still waits for a single flush, so
+            <mark class="quiet-highlight">your write latency barely moves.</mark> Nothing feels slower at the
+            moment you do it.
+          </p>
+          <p>
+            The cost lands somewhere you were not watching: four times the work at checkpoint time, and four
+            buffer slots holding dirty pages instead of one. It shows up as everything being slightly slow,
+            rather than as a slow query you could point at.
+          </p>
+          <p>
+            Which gives the discipline in one line: <strong>every index should be answerable to a real query.</strong>
+            Not a hypothetical one, not a column that merely looks important. The ones that cannot answer for
+            themselves are charging rent on both sides of the ledger — reads and writes — and returning
+            nothing.
+          </p>
+
+          <p class="transition-callout">
+            But notice what none of this fixes. Even with exactly the right indexes, the table keeps growing.
+            Years of old orders sit in the same file as today’s, and every scan, every checkpoint, and every
+            maintenance job still has to walk past them. The next lesson draws boundaries inside the table
+            itself.
+          </p>
+
+          <blockquote class="dragon-line closing-line">
+            <span>The Old Dragon</span>
+            “Power is not the dangerous part, keeper. Keeping power you never use — that is what bleeds a
+            realm dry.”
+          </blockquote>
+        </section>
+
+      </article>
+
+      <section class="reckoning section-shell" aria-labelledby="reckoning-title">
+        <div class="reckoning-intro">
+          <p class="eyebrow">The Dragon’s Reckoning</p>
+          <h2 id="reckoning-title">Where we stand</h2>
+          <p>
+            We can now account for both sides of an index. Reads are cheaper because fewer pages are touched;
+            writes are dearer because more pages are dirtied. Neither number is a mystery any more.
+          </p>
+        </div>
+
+        <div class="standing-grid">
+          <article><span>What we learned</span><strong>Writes go to memory and a log</strong><p>Commit means the WAL is flushed; the table pages follow later, at a checkpoint.</p></article>
+          <article><span>What we solved</span><strong>The true cost of an index</strong><p>One row change, four dirty pages — and a commit that hides the difference.</p></article>
+          <article><span>What remains</span><strong>The table keeps growing</strong><p>Indexes shorten searches, but cold history still shares the file with today’s rows.</p></article>
+          <article><span>Our system now</span><strong>One database · indexes we can defend</strong><p>Every index earns its place against a real query, and we can name what it costs.</p></article>
+        </div>
+
+        <div class="next-gate" aria-labelledby="next-title">
+          <div>
+            <span>Next · Lesson 05</span>
+            <h3 id="next-title">Divide the Hoard</h3>
+            <p>Draw boundaries inside one table so the planner can ignore whole regions of history.</p>
+          </div>
+          <a class="button button-primary" href="../lesson-05-divide-the-hoard/">Enter the next vault →</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer section-shell">
+      <div><strong>Dungeons &amp; Databases</strong><p>A guided journey through database scaling.</p></div>
+      <div class="footer-links"><a href="../lesson-03-the-dragons-power/">← Previous lesson</a><a href="../../index.html">Return to the map</a></div>
+    </footer>
+  </body>
+</html>

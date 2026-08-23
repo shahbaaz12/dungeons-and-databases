@@ -1,0 +1,27 @@
+/* Lesson 04 · The Dark Side
+   Reading system lives in ../lesson-reading.css. */
+
+.wal-trace th[scope="row"] {
+  min-width: 15rem;
+  font-weight: 600;
+}
+
+.wal-trace thead th small {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--faint);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+}
+
+.wal-trace tbody td {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.wal-trace tbody em {
+  color: var(--moss);
+  font-style: normal;
+  font-weight: 700;
+}

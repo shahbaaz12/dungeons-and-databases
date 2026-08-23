@@ -8,11 +8,11 @@
     <meta property="og:type" content="article" />
     <meta property="og:title" content="Divide the Hoard · Dungeons &amp; Databases" />
     <meta property="og:description" content="Use partitions to skip regions and manage time-series data—without mistaking them for more machines." />
-    <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-06-divide-the-hoard/" />
+    <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-05-divide-the-hoard/" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Divide the Hoard · Dungeons &amp; Databases" />
     <meta name="twitter:description" content="Partition for pruning and lifecycle boundaries, not write scale." />
-    <title>Lesson 06 · Divide the Hoard · Dungeons &amp; Databases</title>
+    <title>Lesson 05 · Divide the Hoard · Dungeons &amp; Databases</title>
     <link rel="stylesheet" href="../../styles.css" />
     <link rel="stylesheet" href="../lesson-shared.css" />
     <link rel="stylesheet" href="../lesson-reading.css" />
@@ -23,13 +23,13 @@
     <a class="skip-link" href="#lesson-content">Skip to the lesson</a>
     <header class="site-header lesson-header">
       <a class="brand" href="../../index.html" aria-label="Return to Dungeons and Databases home"><span class="brand-mark" aria-hidden="true">D<span>&amp;</span>D</span><span class="brand-copy"><strong>Dungeons &amp; Databases</strong><small>Split the Realm</small></span></a>
-      <div class="header-actions"><span class="lesson-badge">Lesson 06</span><span class="lesson-header-name">Boundaries within</span><button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme"><span aria-hidden="true" data-theme-icon>☀</span><span data-theme-label>Light</span></button></div>
+      <div class="header-actions"><span class="lesson-badge">Lesson 05</span><span class="lesson-header-name">Boundaries within</span><button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme"><span aria-hidden="true" data-theme-icon>☀</span><span data-theme-label>Light</span></button></div>
     </header>
 
     <main id="lesson-content">
       <section class="lesson-hero section-shell">
         <div class="lesson-hero-copy">
-          <p class="eyebrow">Lesson 06 · Boundaries within</p>
+          <p class="eyebrow">Lesson 05 · Boundaries within</p>
           <h1>Divide one table without leaving one machine.</h1>
           <p>
             Partitioning keeps one logical table for the application while PostgreSQL stores separate physical
@@ -44,159 +44,246 @@
       </section>
 
       <article class="lesson-reading">
-        <section class="reading-section" aria-labelledby="meaning-title">
-          <p class="chapter-number">01 · What the split means</p>
-          <h2 id="meaning-title">One table above. Many physical tables below.</h2>
+        <section class="reading-section" aria-labelledby="what-title">
+          <p class="chapter-number">01 · What partitioning is</p>
+          <h2 id="what-title">One logical table, several physical ones.</h2>
           <p>
-            To the application, <code>orders</code> remains one table. Underneath, PostgreSQL can place August
-            orders in one partition, September orders in another, and so on. Inserts are routed to the matching
-            child. Queries still name the parent.
+            <strong>Partitioning splits one logical table into several physical tables, divided along a column
+            you choose.</strong> That column is the <strong>partition key</strong>.
           </p>
-          <div class="partition-strip" aria-label="One orders table divided into monthly partitions">
-            <div class="partition-parent">orders <small>logical table</small></div>
-            <span aria-hidden="true">→</span>
-            <div class="partition-piece cold">May<small>older</small></div>
-            <div class="partition-piece cold">Jun<small>older</small></div>
-            <div class="partition-piece warm">Jul<small>recent</small></div>
-            <div class="partition-piece hot">Aug<small>current</small></div>
-          </div>
           <p>
-            Every piece still lives in the <strong>same PostgreSQL instance</strong>. They share the machine’s CPU,
-            buffer pool, WAL, storage bandwidth, and fsync path. This is organization inside one castle, not a new
-            castle.
+            An <code>orders</code> table partitioned by year becomes <code>orders_2024</code>,
+            <code>orders_2025</code>, <code>orders_2026</code> on disk &#8212; while staying a single
+            <code>orders</code> table to your application. You do not change your queries. Inserts route
+            themselves to the right piece.
           </p>
-        </section>
 
-        <section class="reading-section" aria-labelledby="pruning-title">
-          <p class="chapter-number">02 · The reward</p>
-          <h2 id="pruning-title">A matching filter lets PostgreSQL ignore whole regions.</h2>
-          <p>
-            Suppose five years of monthly partitions give us sixty physical pieces. A query asks for the last seven
-            days and includes <code>created_at</code>, our partition key. PostgreSQL can prove that fifty-nine pieces
-            cannot contain the answer and plan only the current month. This is <strong>partition pruning</strong>.
-          </p>
-          <pre class="sql-block"><code>SELECT *
-FROM orders
-WHERE created_at &gt;= now() - interval '7 days';</code></pre>
-          <div class="pruning-row" aria-label="Only the August partition is opened">
-            <span class="pruned">May<small>pruned</small></span><span class="pruned">Jun<small>pruned</small></span><span class="pruned">Jul<small>pruned</small></span><span class="opened">Aug<small>opened</small></span>
-          </div>
-          <p>
-            Remove the time filter and PostgreSQL cannot know which partition to skip. It must consider all sixty,
-            often scan all sixty, and combine the results. More partitions then mean more planning work and more
-            indexes to inspect. <mark class="quiet-highlight">A partition helps only a query shaped around its key.</mark>
-          </p>
-        </section>
-
-        <section class="reading-section" aria-labelledby="key-title">
-          <p class="chapter-number">03 · The key</p>
-          <h2 id="key-title">Choose the boundary the data already follows.</h2>
-          <div class="table-wrap">
-            <table>
-              <caption>Common partition strategies</caption>
-              <thead><tr><th>Strategy</th><th>Natural fit</th><th>Weakness</th></tr></thead>
-              <tbody>
-                <tr><td>Range</td><td>Time-series data, prices, ordered identifiers</td><td>The newest range often receives all current writes.</td></tr>
-                <tr><td>List</td><td>A small known set such as regions or statuses</td><td>New values need a destination and uneven groups stay uneven.</td></tr>
-                <tr><td>Hash</td><td>Evenly spread rows when range pruning is unimportant</td><td>Range queries cannot discard neighboring buckets.</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <p>
-            The key is a long-lived design choice. Queries must include it to prune, rows belong to a partition
-            because of it, and changing it later means moving data. PostgreSQL also requires every column of the
-            partition key to appear in a primary key or unique constraint declared on the partitioned table, because
-            separate partitions cannot otherwise enforce uniqueness across one another.
-          </p>
           <pre class="sql-block"><code>CREATE TABLE orders (
-  id bigserial,
-  customer_id bigint NOT NULL,
-  created_at timestamptz NOT NULL,
-  total numeric,
-  PRIMARY KEY (id, created_at)
-) PARTITION BY RANGE (created_at);
+    id          bigserial,
+    customer_id bigint      NOT NULL,
+    order_date  timestamptz NOT NULL,
+    amount      numeric,
+    PRIMARY KEY (id, order_date)
+) PARTITION BY RANGE (order_date);
 
-CREATE TABLE orders_2026_08 PARTITION OF orders
-FOR VALUES FROM ('2026-08-01') TO ('2026-09-01');</code></pre>
-          <p class="source-note">The definition and key rules follow PostgreSQL’s official <a href="https://www.postgresql.org/docs/current/ddl-partitioning.html">Table Partitioning</a> documentation.</p>
+CREATE TABLE orders_2026 PARTITION OF orders
+    FOR VALUES FROM ('2026-01-01') TO ('2027-01-01');</code></pre>
         </section>
 
-        <section class="reading-section" aria-labelledby="retention-title">
-          <p class="chapter-number">04 · The clean exit</p>
-          <h2 id="retention-title">Retention becomes a boundary operation.</h2>
+        <section class="reading-section" aria-labelledby="why-title">
+          <p class="chapter-number">02 · Why not just an index?</p>
+          <h2 id="why-title">They solve different problems.</h2>
           <p>
-            Deleting a year of old orders row by row creates a year of work: each row is located, changed, logged
-            in WAL, and left as dead space until vacuum can reclaim it. Index entries must be cleaned too.
+            Lesson 03 showed an index finding a row in three page reads. So the obvious objection: if an index
+            already loads the required content quickly, why split the table at all? Is partitioning not just a
+            more disruptive version of the same idea?
           </p>
           <p>
-            If that year occupies whole time partitions, retention can detach the old piece and drop it. The
-            database changes the table’s structure instead of visiting every row inside it.
+            <strong>An index answers "where are the rows?"</strong> It is a lookup structure, and it makes
+            <em>finding</em> cheap. What it cannot do is change the fact that the table still contains a
+            billion rows &#8212; that a <code>DELETE</code> must still process every matching row
+            individually, or that <code>VACUUM</code> still has the whole table to work through.
           </p>
-          <div class="comparison-grid">
-            <article><span>Row deletion</span><strong>Visit every old row</strong><p>Large WAL volume, dead tuples, index cleanup, and vacuum work follow the deletion.</p></article>
-            <article><span>Partition retirement</span><strong>Remove one boundary</strong><p>Detach for archive or inspection, then drop the old physical table.</p></article>
-          </div>
-          <pre class="sql-block"><code>ALTER TABLE orders DETACH PARTITION orders_2021_03;
-DROP TABLE orders_2021_03;</code></pre>
           <p>
-            The same boundaries make maintenance smaller. PostgreSQL can <code>VACUUM</code>, <code>ANALYZE</code>,
-            or <code>REINDEX</code> one partition at a time instead of treating years of data as one maintenance unit.
+            <strong>Partitioning changes how much data is involved in the operation itself.</strong> Not how
+            quickly you locate rows, but how much the database has to scan, lock, log, or maintain in order to
+            do the work.
+          </p>
+
+          <p class="transition-callout">
+            The primary benefit, stated plainly: <strong>partitioning reduces how much data the database must
+            scan or manage for a given operation.</strong> A query for 2026 orders can inspect only the
+            <code>orders_2026</code> partition instead of the entire table &#8212; this is
+            <strong>partition pruning</strong>. And old data can be removed by dropping an entire partition
+            rather than deleting millions of rows individually.
+          </p>
+
+          <p>
+            In short: partitioning makes very large tables faster and easier to manage
+            <mark class="quiet-highlight">when queries and maintenance operations align with the partition
+            key.</mark>
           </p>
         </section>
 
-        <section class="reading-section" aria-labelledby="cost-title">
-          <p class="chapter-number">05 · The multiplied furniture</p>
-          <h2 id="cost-title">Every partition brings its own indexes and planning work.</h2>
+        <section class="reading-section" aria-labelledby="pays-title">
+          <p class="chapter-number">03 · Where it pays</p>
+          <h2 id="pays-title">Five operations that change shape entirely.</h2>
+
+          <h3>1. Deleting old data</h3>
           <p>
-            A partitioned index is implemented as matching indexes on the child partitions. Sixty monthly tables
-            with three indexes mean many smaller structures to create, inspect, and maintain. That can be useful—the
-            hot index is smaller—but hundreds or thousands of pieces can make planning and schema changes expensive.
+            Imagine a one-billion-row event table with a two-year retention period.
           </p>
+          <pre class="sql-block"><code>DELETE FROM events
+WHERE event_date &lt; DATE '2024-01-01';</code></pre>
           <p>
-            Partition size should follow useful operations, not an arbitrary urge to make pieces. A boundary is good
-            when it matches query pruning, retention, loading, or maintenance. “One partition per customer” may
-            create tens of thousands of tables without helping the actual query path.
+            Even if the index finds the rows efficiently, the database must still delete millions of rows
+            individually, update every relevant index, generate substantial WAL, manage locks and dead rows,
+            and later reclaim the storage.
           </p>
-          <ul class="lesson-list">
-            <li>Verify common queries include the partition key.</li>
-            <li>Keep the number and size of partitions operationally manageable.</li>
-            <li>Create future partitions before data reaches their boundaries.</li>
-            <li>Measure pruning with <code>EXPLAIN</code>; do not assume it happened.</li>
+          <p>With monthly partitions, the same outcome:</p>
+          <pre class="sql-block"><code>DROP TABLE events_2023_12;</code></pre>
+          <p>
+            The database removes the whole partition as a storage object &#8212; typically much faster, and
+            generating far less transactional work. <strong>This is often the strongest practical reason to
+            partition.</strong> Note that the index was never the bottleneck here; finding the rows was the
+            cheap part.
+          </p>
+
+          <h3>2. Large range scans and aggregations</h3>
+          <pre class="sql-block"><code>SELECT customer_id, SUM(amount)
+FROM orders
+WHERE order_date &gt;= DATE '2026-01-01'
+  AND order_date &lt;  DATE '2026-02-01'
+GROUP BY customer_id;</code></pre>
+          <p>
+            If this returns a large portion of January&#8217;s rows, an index may not help much &#8212; reading
+            many rows through an index involves expensive scattered reads, one fetch at a time.
+          </p>
+          <p>With monthly partitioning, the database can:</p>
+          <ul class="read-paths">
+            <li>Open only the January partition</li>
+            <li>Ignore all other partitions</li>
+            <li>Sequentially scan the relevant partition</li>
+            <li>Potentially process partitions in parallel</li>
           </ul>
+          <p>
+            Which gives the principle underneath both cases so far:
+            <strong>indexes are strongest when selecting a small number of rows; partition pruning is useful
+            when selecting a large number of rows from a limited data range.</strong> They are not competing
+            answers to one question &#8212; they answer two different ones.
+          </p>
+
+          <h3>3. Archiving data</h3>
+          <p>An old partition can be detached from the active table:</p>
+          <pre class="sql-block"><code>ALTER TABLE orders DETACH PARTITION orders_2024;</code></pre>
+          <p>
+            Once detached it can be exported, compressed, moved to cheaper storage, attached to an archive
+            table, or backed up separately. Doing any of that through individual indexed rows is far more
+            expensive.
+          </p>
+
+          <h3>4. Bulk loading</h3>
+          <p>
+            New data can be loaded into a separate table, validated and indexed there, and only then attached
+            as a partition:
+          </p>
+          <pre class="sql-block"><code>Load data  &#8594;  validate it  &#8594;  build indexes  &#8594;  attach partition</code></pre>
+          <p>
+            The import does not interfere with the active table while it runs, and the switch at the end is a
+            metadata operation.
+          </p>
+
+          <h3>5. Localized maintenance</h3>
+          <p>
+            Instead of maintaining one enormous table, the database can operate on one partition at a time
+            &#8212; rebuilding an index, updating statistics, vacuuming or reclaiming storage, checking data
+            integrity.
+          </p>
+          <p>
+            A job that never fits in a maintenance window becomes a series of jobs that do, and partitions
+            covering closed periods often need no maintenance at all.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="when-title">
+          <p class="chapter-number">04 · When it fits, and when it does not</p>
+          <h2 id="when-title">Everything above depends on one condition.</h2>
+
+          <p class="transition-callout">
+            <strong>Pruning only happens if the operation aligns with the partition key.</strong> A query
+            without <code>order_date</code> in its <code>WHERE</code> clause gives the planner nothing to
+            eliminate, so it reads <em>every</em> partition &#8212; while also paying extra planning cost and
+            opening every partition&#8217;s indexes. That is worse than not partitioning at all.
+          </p>
+          <p>
+            So choose the key from the filter your expensive queries and maintenance jobs already use, not from
+            what looks tidy in the schema.
+          </p>
+
+          <h3>Do not partition when</h3>
+          <ul class="read-paths">
+            <li>
+              <strong>Your queries do not carry the key.</strong> Partition by date but look up mostly by
+              <code>customer_id</code>, and every lookup fans out across all partitions.
+            </li>
+            <li>
+              <strong>You need a unique constraint on another column.</strong> Uniqueness is enforced per
+              partition &#8212; which is why the example&#8217;s primary key is <code>(id, order_date)</code>. A
+              plain unique <code>email</code> is not possible on a date-partitioned table.
+            </li>
+            <li>
+              <strong>The table is not large.</strong> Below a few million rows an index wins outright, and
+              partitioning only adds planning overhead.
+            </li>
+            <li>
+              <strong>The key might need to change.</strong> There is no
+              <code>ALTER TABLE ... SET PARTITION KEY</code>; changing it means rewriting the table.
+            </li>
+          </ul>
+
+          <p>
+            On strategy: use <strong>RANGE</strong> for anything time-shaped, which is the common case, and
+            <strong>LIST</strong> for a small fixed set of categories. Treat <strong>HASH</strong> carefully
+            &#8212; it spreads rows evenly but <em>destroys pruning</em>, because consecutive dates land on
+            unrelated partitions. It is for balancing load, not for skipping work.
+          </p>
+          <p>
+            Then verify rather than assume. Run <code>EXPLAIN (ANALYZE, BUFFERS)</code> and look for
+            <code>Partitions removed by pruning</code>. If every partition still appears in the plan, your
+            query and your key disagree.
+          </p>
+
+          <p class="source-note">
+            Full behaviour, including which expressions permit pruning, is in the
+            <a href="https://www.postgresql.org/docs/current/ddl-partitioning.html">table partitioning documentation</a>.
+          </p>
         </section>
 
         <section class="reading-section" aria-labelledby="ceiling-title">
-          <p class="chapter-number">06 · The unchanged ceiling</p>
-          <h2 id="ceiling-title">Partitioning does not add another machine.</h2>
+          <p class="chapter-number">05 · What it does not fix</p>
+          <h2 id="ceiling-title">Partitioning reorganises a table. It does not add a machine.</h2>
           <p>
-            Partitions can shrink the pages a query considers and turn retention into a cheap structural action.
-            They do not give PostgreSQL another CPU, another WAL stream, another fsync path, or another storage
-            device. A write-heavy system can still exhaust the same machine after the table is beautifully divided.
+            Same buffer pool, same write-ahead log, same CPU and disk. Every commit still queues behind the
+            same log it did before.
           </p>
           <p>
-            Yet partitioning is excellent preparation for sharding. The team has already chosen a routing key,
-            handled data movement, lived with queries that omit the key, and learned that cross-boundary operations
-            cost more. The next split keeps those lessons but places the pieces on different machines.
+            So if <strong>writes</strong> are what ran out &#8212; the server saturated accepting new rows
+            rather than answering questions &#8212; partitioning has nothing to offer, because
+            <mark class="quiet-highlight">sixty pieces do not give a machine a second core.</mark>
           </p>
-          <blockquote class="dragon-line"><span>The Old Dragon</span>“You have drawn borders inside the vault. Do not mistake the ink for a second foundation.”</blockquote>
+          <p>
+            Partitioning is a way of <em>reading and managing less</em>. It is not a way of <em>doing
+            more</em>.
+          </p>
+
+          <p class="transition-callout">
+            When you need the second thing, you are no longer splitting the table &#8212; you are splitting the
+            machine. That is sharding, and it costs considerably more than a <code>CREATE TABLE</code>.
+          </p>
+
+          <blockquote class="dragon-line closing-line">
+            <span>The Old Dragon</span>
+            &#8220;You built gates within one keep, and the keep grew lighter. But it is still one keep, keeper,
+            and one gatekeeper.&#8221;
+          </blockquote>
         </section>
       </article>
 
       <section class="reckoning section-shell" aria-labelledby="reckoning-title">
         <div class="reckoning-intro"><p class="eyebrow">The Dragon’s Reckoning</p><h2 id="reckoning-title">Where we stand</h2><p>The table now has useful physical boundaries. Queries and retention can skip work, while the machine’s resource ceiling remains unchanged.</p></div>
         <div class="standing-grid">
-          <article><span>What we learned</span><strong>The key earns pruning</strong><p>A query must constrain the partition key before PostgreSQL can ignore entire pieces.</p></article>
-          <article><span>What we solved</span><strong>Time-shaped reads and retention</strong><p>Recent queries open fewer structures, and old months can leave as complete partitions.</p></article>
+          <article><span>What we learned</span><strong>The key earns pruning</strong><p>An index finds rows; a partition reduces how much data an operation involves at all.</p></article>
+          <article><span>What we solved</span><strong>Time-shaped reads and retention</strong><p>Range scans read one partition, and expiring history becomes a DROP instead of millions of deletes.</p></article>
           <article><span>What remains</span><strong>One WAL · one machine</strong><p>Partitioning organizes data but does not meaningfully raise write throughput.</p></article>
           <article><span>Our system now</span><strong>One database · physical boundaries</strong><p>We gained pruning and lifecycle control while multiplying indexes and planning units.</p></article>
         </div>
         <div class="next-gate">
-          <div><span>Next · Lesson 07</span><h3>Across Many Keeps</h3><p>Move those boundaries onto separate machines and choose the key that routes every request.</p></div>
-          <a class="button button-primary" href="../lesson-07-across-many-keeps/">Continue the journey <b aria-hidden="true">→</b></a>
+          <div><span>Next · Lesson 06</span><h3>Across Many Keeps</h3><p>Move those boundaries onto separate machines and choose the key that routes every request.</p></div>
+          <a class="button button-primary" href="../lesson-06-across-many-keeps/">Continue the journey <b aria-hidden="true">→</b></a>
           <small>The final source document begins with sharding.</small>
         </div>
       </section>
     </main>
-    <footer class="site-footer section-shell"><div><strong>Dungeons &amp; Databases</strong><p>A guided journey through database scaling.</p></div><div class="footer-links"><a href="../lesson-05-copies-of-the-ledger/">← Previous lesson</a><a href="../../index.html">Return to the map</a></div></footer>
+    <footer class="site-footer section-shell"><div><strong>Dungeons &amp; Databases</strong><p>A guided journey through database scaling.</p></div><div class="footer-links"><a href="../lesson-04-the-dark-side/">← Previous lesson</a><a href="../../index.html">Return to the map</a></div></footer>
   </body>
 </html>

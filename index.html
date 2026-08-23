@@ -136,7 +136,7 @@
           </div>
           <p>
             We begin with symptoms, descend into database internals, and return with enough knowledge to
-            choose between an index, a cache, a replica, a partition, and a shard.
+            choose between an index, a partition, a shard, and a replica.
           </p>
         </div>
 
@@ -149,7 +149,7 @@
               <strong>The Groaning Vault</strong>
               <span class="lesson-summary">Diagnose why the database is slow before choosing a remedy.</span>
               <span class="lesson-concepts"><i>Bottlenecks</i><i>Baseline</i><i>Pressure</i></span>
-              <span class="lesson-link">Explore lesson <b aria-hidden="true">→</b></span>
+              <span class="lesson-link">Explore lesson <b aria-hidden="true">&#8594;</b></span>
             </a>
           </li>
           <li class="lesson-card lesson-card-active">
@@ -160,62 +160,62 @@
               <strong>Beneath the Vault</strong>
               <span class="lesson-summary">See pages, the buffer pool, eviction, and the working-set cliff.</span>
               <span class="lesson-concepts"><i>Pages</i><i>Memory</i><i>I/O</i></span>
-              <span class="lesson-link">Explore lesson <b aria-hidden="true">→</b></span>
+              <span class="lesson-link">Explore lesson <b aria-hidden="true">&#8594;</b></span>
             </a>
           </li>
           <li class="lesson-card lesson-card-active">
-            <a href="./lessons/lesson-03-sharpen-before-you-split/">
+            <a href="./lessons/lesson-03-the-dragons-power/">
               <span class="lesson-number">03</span>
               <span class="lesson-state">Unlocked</span>
-              <span class="lesson-kicker">The cheaper answer</span>
-              <strong>Sharpen Before You Split</strong>
-              <span class="lesson-summary">Change the access path and count the pages an index saves.</span>
-              <span class="lesson-concepts"><i>Indexes</i><i>Plans</i><i>Write cost</i></span>
-              <span class="lesson-link">Explore lesson <b aria-hidden="true">→</b></span>
+              <span class="lesson-kicker">Where, not just what</span>
+              <strong>The Dragon&#8217;s Power</strong>
+              <span class="lesson-summary">Turn a hundred disk trips into two, and finally make memory work.</span>
+              <span class="lesson-concepts"><i>Indexes</i><i>B-trees</i><i>Access paths</i></span>
+              <span class="lesson-link">Explore lesson <b aria-hidden="true">&#8594;</b></span>
             </a>
           </li>
           <li class="lesson-card lesson-card-active">
-            <a href="./lessons/lesson-04-the-borrowed-memory/">
+            <a href="./lessons/lesson-04-the-dark-side/">
               <span class="lesson-number">04</span>
               <span class="lesson-state">Unlocked</span>
-              <span class="lesson-kicker">Answers remembered</span>
-              <strong>The Borrowed Memory</strong>
-              <span class="lesson-summary">Use cache-aside safely and name the price of stale answers.</span>
-              <span class="lesson-concepts"><i>Cache-aside</i><i>Invalidation</i><i>Stampedes</i></span>
-              <span class="lesson-link">Explore lesson <b aria-hidden="true">→</b></span>
+              <span class="lesson-kicker">The bill arrives</span>
+              <strong>The Dark Side</strong>
+              <span class="lesson-summary">Follow a write through the log, and count what every extra index costs.</span>
+              <span class="lesson-concepts"><i>WAL</i><i>Dirty pages</i><i>Amplification</i></span>
+              <span class="lesson-link">Explore lesson <b aria-hidden="true">&#8594;</b></span>
             </a>
           </li>
           <li class="lesson-card lesson-card-active">
-            <a href="./lessons/lesson-05-copies-of-the-ledger/">
+            <a href="./lessons/lesson-05-divide-the-hoard/">
               <span class="lesson-number">05</span>
-              <span class="lesson-state">Unlocked</span>
-              <span class="lesson-kicker">Copy for reads</span>
-              <strong>Copies of the Ledger</strong>
-              <span class="lesson-summary">Add read capacity, then handle lag, visibility, and failover.</span>
-              <span class="lesson-concepts"><i>WAL</i><i>Lag</i><i>Failover</i></span>
-              <span class="lesson-link">Explore lesson <b aria-hidden="true">→</b></span>
-            </a>
-          </li>
-          <li class="lesson-card lesson-card-active">
-            <a href="./lessons/lesson-06-divide-the-hoard/">
-              <span class="lesson-number">06</span>
               <span class="lesson-state">Unlocked</span>
               <span class="lesson-kicker">Boundaries within</span>
               <strong>Divide the Hoard</strong>
-              <span class="lesson-summary">Prune physical pieces, simplify retention, and respect the one-machine ceiling.</span>
+              <span class="lesson-summary">Prune whole regions of history and respect the one-machine ceiling.</span>
               <span class="lesson-concepts"><i>Pruning</i><i>Retention</i><i>Ceilings</i></span>
-              <span class="lesson-link">Explore lesson <b aria-hidden="true">→</b></span>
+              <span class="lesson-link">Explore lesson <b aria-hidden="true">&#8594;</b></span>
             </a>
           </li>
           <li class="lesson-card lesson-card-active">
-            <a href="./lessons/lesson-07-across-many-keeps/">
-              <span class="lesson-number">07</span>
+            <a href="./lessons/lesson-06-across-many-keeps/">
+              <span class="lesson-number">06</span>
               <span class="lesson-state">Unlocked</span>
               <span class="lesson-kicker">Beyond one keep</span>
               <strong>Across Many Keeps</strong>
               <span class="lesson-summary">Route data across machines and choose a shard key that survives growth.</span>
               <span class="lesson-concepts"><i>Routing</i><i>Fan-out</i><i>Rebalancing</i></span>
-              <span class="lesson-link">Explore lesson <b aria-hidden="true">→</b></span>
+              <span class="lesson-link">Explore lesson <b aria-hidden="true">&#8594;</b></span>
+            </a>
+          </li>
+          <li class="lesson-card lesson-card-active">
+            <a href="./lessons/lesson-07-copies-of-the-ledger/">
+              <span class="lesson-number">07</span>
+              <span class="lesson-state">Unlocked</span>
+              <span class="lesson-kicker">Copy for reads</span>
+              <strong>Copies of the Ledger</strong>
+              <span class="lesson-summary">Add read capacity with the same log, then face lag and stale answers.</span>
+              <span class="lesson-concepts"><i>WAL shipping</i><i>Lag</i><i>Failover</i></span>
+              <span class="lesson-link">Explore lesson <b aria-hidden="true">&#8594;</b></span>
             </a>
           </li>
           <li class="lesson-card lesson-card-active">
@@ -226,7 +226,7 @@
               <strong>The Price of Many Realms</strong>
               <span class="lesson-summary">Choose consistency per operation and compare every scaling tool.</span>
               <span class="lesson-concepts"><i>Isolation</i><i>Idempotency</i><i>Sagas</i></span>
-              <span class="lesson-link">Explore lesson <b aria-hidden="true">→</b></span>
+              <span class="lesson-link">Explore lesson <b aria-hidden="true">&#8594;</b></span>
             </a>
           </li>
         </ol>

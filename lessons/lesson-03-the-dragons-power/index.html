@@ -5,19 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Learn how PostgreSQL indexes change the access path, reduce page reads, and add write cost."
+      content="Rows live in pages — but which page? Learn how an index turns a hundred page reads into three, and why that finally lets memory work."
     />
     <meta name="theme-color" content="#0b0d0c" />
     <meta property="og:type" content="article" />
-    <meta property="og:title" content="Sharpen Before You Split · Dungeons &amp; Databases" />
-    <meta property="og:description" content="Count the pages an index saves before reaching for partitions or shards." />
-    <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-03-sharpen-before-you-split/" />
+    <meta property="og:title" content="The Dragon’s Power · Dungeons &amp; Databases" />
+    <meta property="og:description" content="An index does not add memory or speed up the disk. It shrinks what you must look at." />
+    <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-03-the-dragons-power/" />
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Sharpen Before You Split · Dungeons &amp; Databases" />
-    <meta name="twitter:description" content="Count the pages an index saves before reaching for partitions or shards." />
-    <title>Lesson 03 · Sharpen Before You Split · Dungeons &amp; Databases</title>
+    <meta name="twitter:title" content="The Dragon’s Power · Dungeons &amp; Databases" />
+    <meta name="twitter:description" content="An index does not add memory or speed up the disk. It shrinks what you must look at." />
+    <title>Lesson 03 · The Dragon’s Power · Dungeons &amp; Databases</title>
     <link rel="stylesheet" href="../../styles.css" />
     <link rel="stylesheet" href="../lesson-shared.css" />
+    <link rel="stylesheet" href="../lesson-reading.css" />
     <link rel="stylesheet" href="./lesson.css" />
     <script src="../../site.js" defer></script>
   </head>
@@ -35,7 +36,7 @@
 
       <div class="header-actions">
         <span class="lesson-badge">Lesson 03</span>
-        <span class="lesson-header-name">The cheaper answer</span>
+        <span class="lesson-header-name">The Dragon’s Power</span>
         <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme">
           <span aria-hidden="true" data-theme-icon>☀</span>
           <span data-theme-label>Light</span>
@@ -46,14 +47,14 @@
     <main id="lesson-content">
       <section class="lesson-hero section-shell">
         <div class="lesson-hero-copy">
-          <p class="eyebrow">Lesson 03 · The cheaper answer</p>
-          <h1>Touch fewer pages before adding machines.</h1>
+          <p class="eyebrow">Lesson 03 · The Dragon’s Power</p>
+          <h1>You know the row is in a page. But which page?</h1>
           <p>
-            The query asks for fifty orders. The database should not search a million pages to find them.
-            Before we split the realm, we will give PostgreSQL a shorter path through the vault.
+            Lesson 02 gave us the rule: a row must be in memory before it can be read. It never told us how
+            the database <em>finds</em> the right page. Answer that, and a hundred trips become two.
           </p>
           <div class="lesson-tags" aria-label="Lesson concepts">
-            <span>Access paths</span><span>B-tree indexes</span><span>Query plans</span><span>Write cost</span>
+            <span>Access paths</span><span>B-tree indexes</span><span>Disk trips</span><span>Working set</span>
           </div>
         </div>
 
@@ -62,304 +63,291 @@
           <div>
             <p class="eyebrow">The Dragon’s Counsel</p>
             <blockquote id="opening-counsel">
-              “Before building more vaults, teach the scribe where to look.”
+              “I will not enlarge your vault, keeper. I will teach you to stop searching it.”
             </blockquote>
-            <p>The cheapest page is the page the query never needs to touch.</p>
+            <p>The cheapest page is the page you never had to open.</p>
           </div>
         </aside>
       </section>
 
       <article class="lesson-reading">
         <section class="reading-section" aria-labelledby="question-title">
-          <p class="chapter-number">01 · The question</p>
-          <h2 id="question-title">How many pages must this query touch?</h2>
+          <p class="chapter-number">01 · The question left open</p>
+          <h2 id="question-title">Knowing rows live in pages does not tell you where.</h2>
           <p>
-            Lesson 02 ended with a rule: every page a query needs must occupy a slot in the buffer pool
-            before a single row can be read. That rule is fixed. What we can still change is
-            <strong>how many pages the query needs in the first place</strong>.
+            We ended lesson 02 with a working machine. Rows live in 8 KB pages. Pages must occupy a slot in
+            the buffer pool before anything can be read. Hot pages survive the clock sweep, cold pages are
+            evicted.
+          </p>
+          <p>
+            All true — and all of it assumes someone already knows <em>which page to ask for</em>. Nothing so
+            far provides that. If you ask for a specific customer’s orders, what tells the database that the
+            row is on page 41,912 rather than page 3?
+          </p>
+          <p>
+            Without an answer, there is only one strategy that is guaranteed to work:
+            <mark class="quiet-highlight">look at everything.</mark> This lesson is about what that costs,
+            and what changes when you no longer have to.
+          </p>
+        </section>
+
+        <section class="reading-section" aria-labelledby="vault-title">
+          <p class="chapter-number">02 · The model</p>
+          <h2 id="vault-title">Shrink the numbers until you can hold them in your head.</h2>
+          <p>
+            Real tables deal in millions of pages, which hides the shape of the problem. So here is the same
+            machine, small enough to count on your fingers. Picture a vault below and a desk above if that
+            helps — it is the last time this lesson will ask you to. Everything after this section is stated
+            in the terms lesson 02 gave us: pages, rows, and the buffer pool.
           </p>
 
-          <div class="query-example">
+          <div class="reading-split">
             <div>
-              <span>The request</span>
-              <strong>Show one customer’s 50 newest orders.</strong>
+              <p>
+                The table occupies <strong>100 pages</strong>. Each page holds <strong>10 rows</strong>, so
+                there are 1,000 rows in total. Lesson 02 measured roughly eight 1 KB rows per 8 KB page; we
+                round to ten here purely to keep the arithmetic clean.
+              </p>
+              <p>
+                The buffer pool has <strong>10 page slots</strong> — it can hold a tenth of the table at
+                once. When all ten are full and another page is needed, the clock sweep evicts the least
+                recently used one to make room.
+              </p>
+              <p>
+                Everything that follows is measured in one unit only: <strong>page reads</strong>, meaning
+                the number of times the database must go to disk. Not seconds, not CPU. That is the
+                expensive thing, and it is the thing an index changes.
+              </p>
             </div>
-            <pre><code>SELECT *
-FROM orders
-WHERE customer_id = 84217
-ORDER BY created_at DESC
-LIMIT 50;</code></pre>
-          </div>
 
+            <aside class="vault-model" aria-label="The model: a 100-page table and a 10-page buffer pool">
+              <p>The model</p>
+              <div class="model-row"><span>Buffer pool</span><strong>10 pages</strong><small>RAM · 10 slots</small></div>
+              <div class="model-divider" aria-hidden="true">↕</div>
+              <div class="model-row model-disk"><span>The table</span><strong>100 pages</strong><small>Disk · 10 rows each</small></div>
+              <p class="model-note">1,000 rows in total. The pool holds a tenth of the table.</p>
+            </aside>
+          </div>
+        </section>
+
+        <section class="reading-section" aria-labelledby="without-title">
+          <p class="chapter-number">03 · Without the power</p>
+          <h2 id="without-title">Every query starts from scratch, and the buffer pool never helps.</h2>
           <p>
-            Suppose <code>orders</code> holds 10 million rows. Keeping lesson 02’s simplified model of about
-            eight 1 KB rows per 8 KB page, the table occupies roughly
-            <strong>1.25 million pages</strong>:
+            You want one specific row. Nothing tells the database which page holds it, so there is only one
+            option: read page 1 and check its ten rows, read page 2 and check its ten rows, and keep going.
           </p>
-
-          <div class="capacity-example" aria-label="Table page count calculation">
-            <p><span>Rows in the table</span><strong>10,000,000</strong></p>
-            <p class="capacity-math">10,000,000 rows ÷ 8 rows per page</p>
-            <p><span>8 KB table pages</span><strong>1,250,000</strong></p>
-          </div>
-
           <p>
-            Here is the uncomfortable part. Nothing in that SQL tells PostgreSQL <em>where</em> customer
-            84217’s rows are. Without a guide, the only way to be certain it has found all of them is to
-            examine every page and discard the rows belonging to everyone else. Returning 50 rows does not
-            make a query cheap. <mark class="quiet-highlight">The cost is the search, not the
-            result.</mark>
+            Suppose the row lives on <strong>page 73</strong>. That is <strong>73 page reads to answer one
+            query</strong>.
+          </p>
+          <p>
+            And the buffer pool did not help once. It holds ten pages, so by the time the scan reaches page
+            73 it is holding pages 64 to 73. Pages 1 to 63 were read, scanned, and evicted to make room for
+            the pages that came after them.
           </p>
 
           <p class="transition-callout">
-            So the question becomes practical: is there a structure that can tell PostgreSQL where those
-            fifty rows live, without reading the table to find out?
+            Now ask for a row on <strong>page 12</strong>. It was in memory moments ago — the scan for page
+            73 evicted it. So this query starts at page 1 and walks again. Twelve more reads.
+          </p>
+
+          <p>
+            That is the failure mode in one sentence:
+            <mark class="quiet-highlight">the buffer pool is always full, but never full of the right
+            thing.</mark> Every page is read once and discarded before it is ever wanted again. You are
+            paying the full price of memory and receiving none of its benefit.
+          </p>
+
+          <h3>One honest correction, and it makes things worse</h3>
+          <p>
+            The count above assumes the scan can stop at page 73 because it found what it wanted. A real
+            sequential scan usually <em>cannot stop early</em> — nothing guarantees there isn’t another
+            matching row further on, so it must read to the end. The realistic number is not 73 page reads.
+            It is <strong>100</strong>.
           </p>
         </section>
 
-        <section class="reading-section" aria-labelledby="index-title">
-          <p class="chapter-number">02 · What an index stores</p>
-          <h2 id="index-title">An index is small because it does not hold your rows.</h2>
+        <section class="reading-section" aria-labelledby="gift-title">
+          <p class="chapter-number">04 · The power</p>
+          <h2 id="gift-title">A second structure, small enough to keep, that says where everything is.</h2>
+
+          <h3>What an index is</h3>
           <p>
-            An index entry stores only two things: the <strong>key</strong> it is sorted by, and a
-            <strong>pointer</strong> to where the full row lives in the table. A row in our example is about
-            1 KB. An index entry on a couple of columns is closer to 30 bytes.
+            In one sentence: <strong>an index is a small, sorted side-structure that maps the values in a
+            column to the location of the rows holding them</strong> — so the database can go straight to a
+            row instead of searching for it.
           </p>
           <p>
-            That size difference is the whole mechanism, because it decides how many entries fit on one
-            8 KB page. A table page holds about 8 rows. An index page holds roughly
-            <strong>250 entries</strong>. And that ratio compounds every time you stack another level.
+            An index does not copy your rows. Each entry holds exactly two things: the <strong>key</strong> it
+            is sorted by, and a <strong>pointer</strong> to the page where that row lives. Nothing else.
+          </p>
+          <p>
+            That is the entire reason it is small enough to be useful. A row in this table is roughly 800
+            bytes &#8212; ten of them fill an 8 KB page. An index entry on a single column is closer to
+            <strong>30 bytes</strong>. So a table page holds 10 rows, while an index page holds about
+            <strong>250 entries</strong>.
           </p>
 
-          <div class="page-currency-layout">
-            <div>
-              <p>
-                PostgreSQL’s default index is a <strong>B-tree</strong>: a stack of sorted pages where each
-                page tells you which page to read next. Work out how tall it must be to cover 10 million
-                rows, at 250 entries per page:
-              </p>
-              <p>
-                The leaves hold one entry per row, so 10,000,000 ÷ 250 gives <strong>40,000 leaf
-                pages</strong>. One level up, 40,000 ÷ 250 gives <strong>160 branch pages</strong>. One more
-                level up, 160 entries fit comfortably on a <strong>single root page</strong>.
-              </p>
-              <p>
-                So the tree is three levels deep, and a lookup reads exactly three index pages: root, branch,
-                leaf. Not because three is a tuned number, but because
-                <mark class="quiet-highlight">250 × 250 × 250 is already more than 10 million.</mark>
-              </p>
-            </div>
-
-            <aside class="btree-guide" aria-label="Simplified B-tree path to customer 84217">
-              <p>One search path</p>
-              <div class="tree-level"><span>Root page</span><strong>Which range?</strong></div>
-              <i aria-hidden="true">↓</i>
-              <div class="tree-level"><span>Branch page</span><strong>Customers 80k–90k</strong></div>
-              <i aria-hidden="true">↓</i>
-              <div class="tree-level leaf-level"><span>Leaf page</span><strong>Customer 84217 · newest first</strong></div>
-              <i aria-hidden="true">↓</i>
-              <div class="tree-result"><span>Table pages</span><strong>Fetch the 50 rows</strong></div>
-            </aside>
+          <div class="capacity-example" aria-label="Index size calculation for 1,000 rows">
+            <p><span>Rows to index</span><strong>1,000</strong></p>
+            <p class="capacity-math">1,000 entries &#247; 250 entries per index page</p>
+            <p><span>Leaf pages needed</span><strong>4</strong></p>
           </div>
 
+          <h3>How it works</h3>
           <p>
-            This also explains something lesson 02 left implicit. The root and branch levels together are
-            only 161 pages — about <strong>1.3 MB</strong>. Every single lookup passes through the root, so
-            its clock-sweep score never falls to zero and it is never chosen for eviction. The top of the
-            tree simply lives in RAM permanently.
+            The entries are kept in <strong>sorted order</strong>, and sorted order is what makes a lookup
+            cheap. You never scan; you <em>narrow</em>. Each comparison throws away a large part of what
+            remains, instead of eliminating one row at a time.
           </p>
           <p>
-            The practical effect is that navigation becomes free. A lookup nominally costs three index page
-            reads, but two of them are always buffer hits. <strong>Roughly a megabyte of RAM is what lets
-            PostgreSQL find any row in a ten-gigabyte table.</strong>
-          </p>
-        </section>
-
-        <section class="reading-section" aria-labelledby="order-title">
-          <p class="chapter-number">03 · Column order</p>
-          <h2 id="order-title">A multicolumn index is sorted in one direction only.</h2>
-          <p>
-            An index helps only if its sort order matches the question. To see why, think about a phone book
-            sorted by last name, then first name.
-          </p>
-          <p>
-            Finding everyone named <em>Smith</em> is instant, because every Smith sits together in one block.
-            Finding <em>Smith, John</em> is instant too — narrow to Smith, then scan to John. But finding
-            everyone named <em>John</em> means reading the entire book, because the Johns are scattered from
-            Adams to Zhang. Same book, same data. One question is instant and the other reads everything,
-            purely because of which column it filters on.
-          </p>
-          <p>
-            The reason is that sorting is <strong>hierarchical</strong>. The second column is only sorted
-            <em>within</em> groups that share the same first column. Remove the filter on the first column
-            and those groups mean nothing.
-          </p>
-          <p>
-            Our query filters on <code>customer_id</code> with an equality test, then wants the newest orders
-            first. So <code>customer_id</code> must lead, and <code>created_at DESC</code> follows:
+            But sorting alone is not enough on disk. "Jump to the middle and compare" still costs a page read
+            every time you jump, and you would do that repeatedly. So the structure stores the narrowing
+            itself &#8212; it writes down, in advance, which page to look at next.
           </p>
 
-          <pre class="sql-block"><code>CREATE INDEX orders_customer_created_idx
-ON orders (customer_id, created_at DESC);</code></pre>
-
+          <h3>What a B-tree is</h3>
           <p>
-            Now the leaf entries for customer 84217 are contiguous <em>and</em> already in the requested
-            order. PostgreSQL walks to the start of that customer’s block, reads fifty entries, and stops.
-            <strong>The <code>ORDER BY</code> costs nothing, because the index was already sorted that
-            way.</strong> Reverse the two columns and both benefits vanish: the customer’s rows would be
-            scattered across the whole index.
+            A <strong>B-tree</strong> is a stack of sorted pages. The bottom level, the <strong>leaves</strong>,
+            holds every entry in order. Each level above holds <strong>signposts</strong>: <em>keys up to here
+            live on that page; keys up to there live on the next one.</em> You start at the single page on top
+            and follow signposts down until you reach a leaf.
           </p>
           <p>
-            The general rule follows from the same mechanism — <strong>equality columns first, range and
-            ordering columns last</strong>. An index can jump straight to an exact value, but once it reaches
-            a range it has to start walking, and nothing after that point can be used to seek.
+            The <em>B</em> stands for balanced, and it earns its place: every leaf sits the same distance from
+            the top. So every lookup costs the same number of page reads.
+            <mark class="quiet-highlight">There is no unlucky row.</mark>
           </p>
 
-          <p class="source-note">
-            PostgreSQL notes that multicolumn B-tree indexes are most efficient when query constraints use
-            their leading columns. See the official
-            <a href="https://www.postgresql.org/docs/current/indexes-multicolumn.html">multicolumn-index documentation</a>.
-          </p>
-        </section>
-
-        <section class="reading-section" aria-labelledby="budget-title">
-          <p class="chapter-number">04 · The new page budget</p>
-          <h2 id="budget-title">Count the pages that no longer had to be read.</h2>
+          <h3>How PostgreSQL builds ours</h3>
           <p>
-            The index does not make pages free. It replaces a broad search with a short tree walk followed by
-            a focused set of table visits.
+            B-tree is PostgreSQL&#8217;s default index type &#8212; a plain <code>CREATE INDEX</code> gives you one
+            unless you ask for something else. For our 1,000 rows it comes out two levels deep:
+          </p>
+          <ul>
+            <li><strong>4 leaf pages</strong>, holding 250 sorted entries each.</li>
+            <li><strong>1 root page</strong> above them, holding four signposts &#8212; one per leaf.</li>
+          </ul>
+          <p>
+            Five pages in total, against the table&#8217;s 100. A lookup reads the root, then the one leaf the
+            root pointed at, then the one table page holding the row. <strong>Three page reads.</strong>
+          </p>
+          <p>
+            And when the table grows, the tree gets <em>taller</em> rather than wider &#8212; which is
+            remarkably slow growth. One level covers 250 rows, two cover 62,500, three cover more than 15
+            million. That is why even an enormous table stays three or four pages away from any row you ask
+            for.
+          </p>
+
+          <h3>The magic</h3>
+          <p>
+            Now watch what that does across three requests in a row, on a buffer pool of ten slots.
           </p>
 
           <div class="table-wrap">
-            <table class="budget-table">
-              <caption>An illustrative page count for one customer-history query</caption>
+            <table>
+              <caption>Page reads, in sequence, with a 10-slot buffer pool</caption>
               <thead>
                 <tr>
-                  <th scope="col">Access path</th>
-                  <th scope="col">What it reads</th>
-                  <th scope="col">Pages touched</th>
+                  <th scope="col">Request</th>
+                  <th scope="col">Without an index</th>
+                  <th scope="col">With an index</th>
+                  <th scope="col">Why</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <th scope="row">Broad search</th>
-                  <td>Every page of the table, rejecting other customers’ rows</td>
-                  <td>≈ 1,250,000</td>
+                  <th scope="row">Row on page 73 · cold</th>
+                  <td class="numeric">73</td>
+                  <td class="numeric">3</td>
+                  <td>Root, then leaf, then the one table page that holds the row</td>
                 </tr>
                 <tr>
-                  <th scope="row">Guided search</th>
-                  <td>3 index pages, then up to 50 table pages holding the matching rows</td>
-                  <td>≈ 53</td>
+                  <th scope="row">Row on page 12 · next</th>
+                  <td class="numeric">12</td>
+                  <td class="numeric">1</td>
+                  <td>The index pages are still resident, so only the table page is read</td>
+                </tr>
+                <tr class="win">
+                  <th scope="row">Row on page 73 · again</th>
+                  <td class="numeric">73</td>
+                  <td class="numeric">0</td>
+                  <td>Index and page 73 are both still in the pool. Nothing is read at all</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
           <p>
-            That is roughly <strong>23,000 times fewer pages</strong> for the same answer. Notice where the
-            saving comes from: not from reading faster, but from never opening the other 1,249,947 pages.
-          </p>
-          <p>
-            The “up to 50” half of that figure is deliberately pessimistic — it assumes every returned row
-            sits on a different table page. If a customer’s recent orders were inserted around the same time,
-            they often share pages, and the count drops. In the other direction, a
-            <strong>covering index</strong> that already contains every column the query selects can answer
-            it from the leaves alone, and the table visits disappear entirely.
-          </p>
-
-          <p class="source-note">
-            These counts are a teaching model. Real plans depend on row size, which pages are already cached,
-            data distribution, table statistics, physical clustering, and the columns the query returns.
+            Read the last row twice. Without the index, asking the same question again costs exactly what it
+            cost the first time &#8212; <strong>73 reads, forever</strong>. With the index, the second ask is
+            <strong>free</strong>.
           </p>
         </section>
 
-        <section class="reading-section" aria-labelledby="plan-title">
-          <p class="chapter-number">05 · Ask, do not assume</p>
-          <h2 id="plan-title">The query plan tells you which path was chosen.</h2>
+        <section class="reading-section" aria-labelledby="memory-title">
+          <p class="chapter-number">05 · Why memory suddenly works</p>
+          <h2 id="memory-title">The index did not add memory. It brought you under the limit.</h2>
           <p>
-            Creating an index is a suggestion, not an instruction. PostgreSQL’s planner estimates the cost of
-            each available path and picks the cheapest. <code>EXPLAIN</code> lets us read that decision
-            instead of guessing at it.
+            This is the insight worth carrying out of the lesson, and the speed-up tends to distract from it.
+          </p>
+          <p>
+            <strong>Before:</strong> one query had to examine all 100 pages, and only 10 could be held at
+            once. The requirement was ten times the capacity, so caching was
+            <em>mathematically pointless</em> — nothing you kept was worth keeping, because everything was
+            evicted before it was wanted again.
+          </p>
+          <p>
+            <strong>After:</strong> one query needs 3 pages — root, leaf, and the table page. The five index
+            pages settle permanently into five slots, because every single lookup touches them. That leaves
+            five slots for whichever table pages the traffic keeps asking for.
           </p>
 
-          <pre class="sql-block explain-command"><code>EXPLAIN (ANALYZE, BUFFERS)
-SELECT *
-FROM orders
-WHERE customer_id = 84217
-ORDER BY created_at DESC
-LIMIT 50;</code></pre>
-
-          <div class="plan-pair">
-            <article>
-              <span>Before the index</span>
-              <pre><code>Seq Scan on orders
-  Filter: customer_id = 84217
-  Rows Removed by Filter: many
-  Buffers: shared hit=… read=…</code></pre>
-            </article>
-            <article class="preferred-plan">
-              <span>After the index</span>
-              <pre><code>Index Scan using
-  orders_customer_created_idx
-  Index Cond: customer_id = 84217
-  Buffers: shared hit=… read=…</code></pre>
-            </article>
+          <div class="capacity-example" aria-label="What one query requires, before and after">
+            <p><span>Pages one query needs · before</span><strong>100</strong></p>
+            <p class="capacity-math">10 slots available — the requirement exceeds capacity 10×</p>
+            <p><span>Pages one query needs · after</span><strong>3</strong></p>
           </div>
 
           <p>
-            Two lines carry most of the meaning. <strong>Seq Scan</strong> versus <strong>Index Scan</strong>
-            is the access path — which of the two rows in the table above actually happened. And
-            <strong>Rows Removed by Filter</strong> is the wasted work made visible: rows that were read from
-            a page, examined, and thrown away. A large number there is the signature of a missing index.
-          </p>
-          <p>
-            The <code>Buffers</code> line needs no new vocabulary, because lesson 02 already supplied it.
-            <strong>shared hit</strong> counts pages found waiting in the buffer pool; <strong>shared
-            read</strong> counts pages that had to be fetched into it first. Adding <code>BUFFERS</code> is
-            what turns this lesson’s page arithmetic from a model into a measurement.
+            Nothing physical improved. The disk is not faster and the buffer pool is not larger. The index
+            changed a single number — <strong>how many pages one query must examine</strong> — from 100 down
+            to 3, and that number was the only thing standing between you and a working cache.
           </p>
 
-          <p class="source-note">
-            <code>ANALYZE</code> actually runs the statement; use care with writes. PostgreSQL explains these
-            fields in the official <a href="https://www.postgresql.org/docs/current/using-explain.html">Using EXPLAIN guide</a>.
-          </p>
+          <blockquote class="dragon-line">
+            <span>The Old Dragon</span>
+            “You did not need more memory, keeper. You needed to stop reading the whole realm to answer one
+            question.”
+          </blockquote>
         </section>
 
-        <section class="reading-section" aria-labelledby="cost-title">
-          <p class="chapter-number">06 · The price</p>
-          <h2 id="cost-title">Every index is paid for on the write path.</h2>
+        <section class="reading-section" aria-labelledby="bargain-title">
+          <p class="chapter-number">06 · The bargain</p>
+          <h2 id="bargain-title">Why this is the one to reach for first.</h2>
           <p>
-            An index is a second copy of part of your data, and PostgreSQL must keep it correct. Insert an
-            order and the row is written to a table page — then a new entry must also be placed in the
-            correct sorted position in the index, which means reading and modifying an index page too. Delete
-            or change an indexed value and the same work happens again. Three indexes on a table means three
-            of these on every write.
+            Used well, an index is the best bargain in this course. A few pages of keys turned a hundred page
+            reads into three, then into one, then into none — on hardware that did not change and a database
+            that did not shrink by a single row.
           </p>
           <p>
-            There is a subtler cost that lesson 02 lets us see clearly. Index pages are not stored somewhere
-            special — they are ordinary 8 KB pages, and they live in <strong>the same buffer pool, competing
-            for the same slots</strong> as your table pages. Our 40,161-page index is about 320 MB. On a
-            1 GiB buffer pool with 131,072 slots, holding it entirely would consume roughly a third of them.
+            Nothing else you will meet gives you that much for that little. Every technique after this one
+            costs more to build, more to reason about, and more to live with once it is in place.
+            <mark class="quiet-highlight">So reach for this one first, and reach for it often.</mark>
           </p>
           <p>
-            That is why <em>index every column</em> is not a strategy. An index nobody queries still gets
-            written to on every insert, and its pages still push table pages out of memory.
-            <mark class="quiet-highlight">An unused index does not merely cost nothing — it actively evicts
-            data you do need.</mark>
-          </p>
-          <p>
-            The same accounting explains why the planner sometimes ignores a perfectly good index. A
-            sequential scan harvests about eight useful rows per page. An index scan into scattered rows may
-            visit one page per row. So once a query matches a large share of the table, the guided path can
-            touch <em>more</em> pages than the broad one — and the planner is right to refuse it. The goal
-            was never to use an index. The goal is to touch the fewest pages.
+            That is not the whole story, though, and the next lesson tells the other half. An index is cheap
+            to <em>use</em>. It is not at all cheap to <em>keep</em>.
           </p>
 
           <blockquote class="dragon-line closing-line">
             <span>The Old Dragon</span>
-            “Do not admire the speed first. Count the doors that no longer opened.”
+            “Do not admire the speed first. Count the doors that no longer opened — then ask what it cost to
+            keep the map honest.”
           </blockquote>
         </section>
+
       </article>
 
       <section class="reckoning section-shell" aria-labelledby="reckoning-title">
@@ -367,26 +355,25 @@ LIMIT 50;</code></pre>
           <p class="eyebrow">The Dragon’s Reckoning</p>
           <h2 id="reckoning-title">Where we stand</h2>
           <p>
-            One justified index changed the route through the same database. We removed page work before
-            considering a more complicated architecture.
+            The database is unchanged in size and speed. One small structure changed how much of it any single
+            question has to touch — and that was enough to make memory work at all.
           </p>
         </div>
 
         <div class="standing-grid">
-          <article><span>What we learned</span><strong>An index is an access path</strong><p>Small entries make a shallow tree, and a shallow tree turns a search into a handful of page reads.</p></article>
-          <article><span>What we solved</span><strong>The customer-history query</strong><p>A composite index matching the filter and the ordering cut the illustrative journey from 1.25 million pages to about 53.</p></article>
-          <article><span>What remains</span><strong>Old data still shares the table</strong><p>Indexes shorten searches, but they do not create lifecycle boundaries for years of history.</p></article>
-          <article><span>Our system now</span><strong>One database · one justified index</strong><p>Reads are sharper, writes cost a little more, and the architecture remains simple.</p></article>
+          <article><span>What we learned</span><strong>An index is an access path</strong><p>Keys and pointers are small, so the guide fits in memory even when the data never could.</p></article>
+          <article><span>What we solved</span><strong>Search that ignored the cache</strong><p>Three page reads instead of a hundred, then one, then zero — because a query now needs 3 pages, not 100.</p></article>
+          <article><span>What remains</span><strong>The index is not free</strong><p>Every write must keep it correct, and every index competes for the same buffer slots.</p></article>
+          <article><span>Our system now</span><strong>One database · one justified index</strong><p>Reads are sharp, the architecture is unchanged, and the bill has not yet arrived.</p></article>
         </div>
 
-        <div class="next-gate">
+        <div class="next-gate" aria-labelledby="next-title">
           <div>
             <span>Next · Lesson 04</span>
-            <h3>The Borrowed Memory</h3>
-            <p>Skip repeated database work by caching answers, then learn how those answers become stale.</p>
+            <h3 id="next-title">The Dark Side</h3>
+            <p>Every index is paid for on the write path. Time to open the ledger and see how writes really work.</p>
           </div>
-          <a class="button button-primary" href="../lesson-04-the-borrowed-memory/">Continue the journey <b aria-hidden="true">→</b></a>
-          <small>The source journey moves next from indexes to caching.</small>
+          <a class="button button-primary" href="../lesson-04-the-dark-side/">Enter the next vault →</a>
         </div>
       </section>
     </main>

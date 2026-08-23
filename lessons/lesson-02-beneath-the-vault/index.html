@@ -10,11 +10,11 @@
     <meta name="theme-color" content="#0b0d0c" />
     <meta property="og:type" content="article" />
     <meta property="og:title" content="Beneath the Vault · Dungeons &amp; Databases" />
-    <meta property="og:description" content="Understand the buffer pool, page hits, storage misses, and clock-sweep eviction." />
+    <meta property="og:description" content="Understand the buffer pool, page hits, disk misses, and clock-sweep eviction." />
     <meta property="og:url" content="https://shahbaaz12.github.io/dungeons-and-databases/lessons/lesson-02-beneath-the-vault/" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Beneath the Vault · Dungeons &amp; Databases" />
-    <meta name="twitter:description" content="Understand the buffer pool, page hits, storage misses, and clock-sweep eviction." />
+    <meta name="twitter:description" content="Understand the buffer pool, page hits, disk misses, and clock-sweep eviction." />
     <title>Lesson 02 · Beneath the Vault · Dungeons &amp; Databases</title>
     <link rel="stylesheet" href="../../styles.css" />
     <link rel="stylesheet" href="../lesson-shared.css" />
@@ -95,26 +95,46 @@
           <p class="chapter-number">02 · Why the rule matters</p>
           <h2 id="speed-title">Why does reading from RAM make such a difference?</h2>
           <p>
-            Imagine that you are reading a book. RAM is the open book on your desk: the page is already in
-            front of you. An SSD is the library downstairs: you must leave the desk, find the book, and bring
-            it back. Network storage is a library in another building: the request must travel even farther
-            before the book reaches your desk.
+            Every read ends the same way: the row is read from a page in RAM. What differs is
+            <em>how that page got there</em>. There are three cases, and they are nowhere near each other.
           </p>
+
+          <ul class="read-paths">
+            <li>
+              <strong>The page is already in RAM.</strong> It is sitting in the buffer pool from an earlier
+              query. Nothing is fetched. The row is read immediately, in about
+              <strong>100 nanoseconds</strong>.
+            </li>
+            <li>
+              <strong>The page is on a local SSD.</strong> It must first be copied from the drive into a
+              free slot in the buffer pool, and only then read. That copy takes about
+              <strong>100 microseconds</strong> &#8212; roughly <strong>a thousand times</strong> longer than
+              reading a page already in memory.
+            </li>
+            <li>
+              <strong>The page is on network storage.</strong> The same copy happens, but the request and
+              the page must also cross a network first. About <strong>1 millisecond</strong> &#8212; roughly
+              <strong>ten thousand times</strong> longer.
+            </li>
+          </ul>
+
           <p>
-            In every case, you finally read at the desk. What changes is the time spent fetching the book.
-            Computers work the same way, only much faster:
+            The same shape, in everyday terms: RAM is the book already open on your desk. A local SSD is the
+            library downstairs &#8212; you must leave the desk, fetch it, and come back. Network storage is a
+            library in another town. In all three cases you finally read at the desk. Only the fetching
+            changes.
           </p>
 
           <div class="table-wrap">
             <table class="latency-table">
-              <caption>A simple comparison—the exact speed depends on the hardware</caption>
+              <caption>A simple comparison&#8212;the exact speed depends on the hardware</caption>
               <thead>
-                <tr><th scope="col">Where the data is</th><th scope="col">Book analogy</th><th scope="col">Approximate wait</th><th scope="col">Compared with RAM</th></tr>
+                <tr><th scope="col">Where the page is</th><th scope="col">What has to happen first</th><th scope="col">Approximate wait</th><th scope="col">Compared with RAM</th></tr>
               </thead>
               <tbody>
-                <tr><th scope="row">RAM</th><td>Open on your desk</td><td>~100 nanoseconds</td><td>1×</td></tr>
-                <tr><th scope="row">Local SSD</th><td>Library downstairs</td><td>~100 microseconds</td><td>~1,000×</td></tr>
-                <tr><th scope="row">Network storage</th><td>Library in another building</td><td>~1 millisecond</td><td>~10,000×</td></tr>
+                <tr><th scope="row">RAM</th><td>Nothing&#8212;it is already there</td><td>~100 nanoseconds</td><td>1&#215;</td></tr>
+                <tr><th scope="row">Local SSD</th><td>Copy the page into a buffer slot</td><td>~100 microseconds</td><td>~1,000&#215;</td></tr>
+                <tr><th scope="row">Network storage</th><td>Cross a network, then copy it in</td><td>~1 millisecond</td><td>~10,000&#215;</td></tr>
               </tbody>
             </table>
           </div>
@@ -124,7 +144,7 @@
             about <strong>17 minutes</strong>, and a network-storage trip about <strong>2 hours and 47
             minutes</strong>. These are rough orders of magnitude, not a benchmark or a promise. Hardware,
             caching, queueing, access patterns, and network distance can change the real result. For a deeper
-            treatment, see Brendan Gregg’s
+            treatment, see Brendan Gregg&#8217;s
             <a href="https://www.brendangregg.com/systems-performance-2nd-edition-book.html">Systems Performance, 2nd Edition</a>.
           </p>
         </section>
@@ -137,45 +157,59 @@
             <div>
               <p>
                 PostgreSQL does not move one row at a time. It groups rows into fixed-size pieces called
-                <strong>pages</strong>. A PostgreSQL page is normally <strong>8 KB</strong>. When one row is
-                needed, the whole page containing that row is brought into RAM.
+                <strong>pages</strong>. A PostgreSQL page is <strong>8 KB</strong>. When one row is needed,
+                the whole page containing that row is brought into RAM.
               </p>
               <p>
-                The buffer pool is divided into 8 KB slots. Each slot holds one page. Once a page is loaded,
-                every row on that page is available in RAM—not only the row that caused the trip.
-              </p>
-              <p>
-                PostgreSQL remembers which page is in each slot. The next request for any row on that page can
-                reuse the same copy instead of visiting storage again.
+                So one trip brings back a page, and a page brings back all the rows stored on it. If a page
+                holds ten rows, fetching one of them costs exactly the same as fetching all ten.
+                <mark class="quiet-highlight">The other nine arrive free.</mark> Whether that is a bargain or
+                waste depends entirely on whether you wanted them.
               </p>
             </div>
 
             <aside class="rows-to-pages" aria-label="Simplified example showing rows grouped into pages">
               <p>A simplified table</p>
-              <div><span>Page 1</span><strong>Rows 1–10</strong></div>
-              <div class="requested-page"><span>Page 2</span><strong>Rows 11–20</strong><small>Row 14 lives here</small></div>
-              <div><span>Page 3</span><strong>Rows 21–30</strong></div>
-              <p class="visual-result">Ask for row 14 → bring page 2</p>
+              <div><span>Page 1</span><strong>Rows 1&#8211;10</strong></div>
+              <div class="requested-page"><span>Page 2</span><strong>Rows 11&#8211;20</strong><small>Row 14 lives here</small></div>
+              <div><span>Page 3</span><strong>Rows 21&#8211;30</strong></div>
+              <p class="visual-result">Ask for row 14 &#8594; bring page 2</p>
               <small>Real rows vary in size; these groups are only an example.</small>
             </aside>
           </div>
 
           <p>
-            Take a buffer configured as 1 GiB—often casually called “1 GB.” Because the binary unit divides
-            evenly into 8 KB pages, the number of slots is exact:
+            PostgreSQL keeps a lookup table recording which page currently occupies which slot, so a later
+            request for any row on a resident page is answered from memory instead of going to disk again.
+            That is what makes a cache a cache.
           </p>
 
-          <div class="capacity-example" aria-label="One gibibyte buffer pool capacity calculation">
-            <p><span>Example buffer pool</span><strong>1 GiB</strong></p>
-            <p class="capacity-math">1,073,741,824 bytes ÷ 8,192 bytes per page</p>
-            <p><span>8 KB page slots</span><strong>131,072</strong></p>
+          <h3>How many pages fit?</h3>
+          <p>
+            Take a buffer pool of <strong>1 GB</strong> and divide it by the 8 KB page size:
+          </p>
+
+          <div class="capacity-example" aria-label="Buffer pool capacity calculation">
+            <p><span>Buffer pool</span><strong>1 GB</strong></p>
+            <p class="capacity-math">1 GB &#247; 8 KB per page</p>
+            <p><span>Page slots</span><strong>&#8776; 130,000</strong></p>
           </div>
 
           <p>
-            If each page held roughly 8 rows of about 1 KB each, those slots could contain about
-            <strong>1.05 million rows</strong> at once. This is only a rough example: real pages also use space
-            for page information, and real rows do not all have the same size.
+            About <strong>130,000 pages</strong> resident at once. At roughly eight rows per page, that is
+            somewhere near <strong>a million rows</strong> held in memory. A useful number to carry: a
+            gigabyte of buffer pool is about a million rows, give or take the size of your rows.
           </p>
+
+          <p class="source-note">
+            Treat every number here as an estimate, not a measurement. A real table has far more columns
+            than this example, so a real row is usually much larger than 1 KB — which means fewer rows per
+            page and fewer rows resident than the arithmetic above suggests. Row width, column types, and
+            <code>NULL</code> handling all move the figure. Check yours with
+            <code>SELECT pg_size_pretty(pg_relation_size('your_table'));</code> and
+            <code>SHOW shared_buffers;</code> rather than trusting the example. The
+            <a href="https://www.postgresql.org/docs/current/storage-page-layout.html">page layout documentation</a>
+            explains what else occupies the 8 KB besides your data.</p>
         </section>
 
         <section class="reading-section" aria-labelledby="paths-title">
@@ -199,11 +233,11 @@
             </section>
 
             <section aria-labelledby="miss-title">
-              <p class="path-label">Page missing · storage trip</p>
+              <p class="path-label">Page missing · disk trip</p>
               <h3 id="miss-title">Page 17 is not in the buffer.</h3>
               <ol>
-                <li>PostgreSQL sends a request for page 17 to storage.</li>
-                <li>Storage reads page 17 and sends the page back.</li>
+                <li>PostgreSQL sends a request for page 17 to disk.</li>
+                <li>The disk reads page 17 and sends the page back.</li>
                 <li>PostgreSQL places the returned page into a buffer slot in RAM.</li>
                 <li>PostgreSQL reads the requested row from that page and returns the answer.</li>
               </ol>
@@ -221,9 +255,21 @@
           <p class="chapter-number">05 · Working set and eviction</p>
           <h2 id="working-title">Hot pages stay. Cold pages make room.</h2>
           <p>
-            The <strong>working set</strong> is simply the group of pages the current queries keep asking for.
-            If a dashboard repeatedly reads pages 3, 8, and 17, those pages are its working set. Because they
-            are requested often, we call them <strong>hot pages</strong>.
+            <mark class="quiet-highlight"><strong>The working set</strong></mark> is simply the group of pages
+            the current queries keep asking for. If a dashboard repeatedly reads pages 3, 8, and 17, those
+            pages are its working set. Because they are requested often, we call them
+            <strong>hot pages</strong>.
+          </p>
+          <p>
+            A small real example. A shop has five years of orders on disk, but the checkout screen only ever
+            reads <em>today’s</em> orders, and the staff dashboard only ever reads <em>this week’s</em>. Five
+            years of data might be 200,000 pages; one week of it might be 800. Those 800 are the working set.
+            The other 199,200 pages are still in the table, still on disk, and almost never touched.
+          </p>
+          <p>
+            That is the useful part: <strong>the working set is decided by your queries, not by the size of
+            your table.</strong> A huge table with a narrow working set stays fast. A small table that every
+            query scans end to end does not.
           </p>
           <p>
             To make room, PostgreSQL uses a <strong>clock sweep</strong>. Each buffer slot has a small score.
@@ -234,7 +280,7 @@
           <p>
             Frequent requests keep hot pages alive. Unused pages cool down and make room. If the whole working
             set fits, later requests are mostly buffer hits. If it does not fit, useful pages may be removed
-            before they are needed again, causing repeated storage trips. That is <strong>thrashing</strong>.
+            before they are needed again, causing repeated disk trips. That is <strong>thrashing</strong>.
           </p>
 
           <blockquote class="dragon-line closing-line">
@@ -257,7 +303,7 @@
 
         <div class="standing-grid">
           <article><span>What we learned</span><strong>Every answer begins in RAM</strong><p>PostgreSQL reads rows from pages in the buffer, never directly from storage.</p></article>
-          <article><span>What we solved</span><strong>The mysterious latency swing</strong><p>A buffer hit avoids the storage trip; a miss must fetch the page before the row can be read.</p></article>
+          <article><span>What we solved</span><strong>The mysterious latency swing</strong><p>A buffer hit avoids the disk trip; a miss must fetch the page before the row can be read.</p></article>
           <article><span>What remains</span><strong>Why touch so many pages?</strong><p>The next lesson changes the access path so the database can ignore most of the table.</p></article>
           <article><span>Our system now</span><strong>One database · visible memory</strong><p>The architecture is unchanged, but we can see its working set, hits, misses, and eviction pressure.</p></article>
         </div>
@@ -265,10 +311,10 @@
         <div class="next-gate" aria-labelledby="next-title">
           <div>
             <span>Next · Lesson 03</span>
-            <h3 id="next-title">Sharpen Before You Split</h3>
-            <p>Before adding machines, we will ask why the database had to touch so many pages at all.</p>
+            <h3 id="next-title">The Dragon&#8217;s Power</h3>
+            <p>Rows live in pages &#8212; but which page? Answer that, and a hundred trips become two.</p>
           </div>
-          <a class="button button-primary" href="../lesson-03-sharpen-before-you-split/">Enter the next vault →</a>
+          <a class="button button-primary" href="../lesson-03-the-dragons-power/">Enter the next vault →</a>
         </div>
       </section>
     </main>

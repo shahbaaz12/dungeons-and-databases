@@ -1,453 +1,67 @@
-/* ---------------------------------------------------------------
-   Reading-first primitives, matching lesson 02's structure.
-   Uses the palette defined in styles.css (--jade / --moss / --faint).
-   --------------------------------------------------------------- */
+/* Lesson 03 · The Dragon's Power
+   Reading system lives in ../lesson-reading.css.
+   Only lesson-specific pieces belong here. */
 
-.lesson-reading {
-  width: 100%;
-  margin: 0 auto;
+/* --- the 100-scrolls / 10-slots model -------------------------- */
+
+.vault-model {
+  padding: 1.4rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
 }
 
-.reading-section {
-  width: min(1180px, calc(100% - 40px));
-  margin-inline: auto;
-  padding: clamp(5rem, 10vw, 9rem) 0;
-  border-top: 1px solid var(--line);
-}
-
-.chapter-number {
+.vault-model > p:first-child {
   margin: 0 0 1rem;
-  color: var(--jade);
-  font-family: var(--mono);
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-}
-
-.reading-section h2 {
-  max-width: 900px;
-  margin: 0 0 1.75rem;
-  font-size: clamp(2.5rem, 5vw, 4.8rem);
-  font-weight: 500;
-  line-height: 1.02;
-}
-
-.reading-section > p:not(.chapter-number) {
-  max-width: 780px;
-  margin: 0 0 1.3rem;
-  color: var(--muted);
-  font-size: clamp(1.05rem, 1.8vw, 1.2rem);
-  line-height: 1.85;
-}
-
-.reading-section p strong {
-  color: var(--text);
-}
-
-.quiet-highlight {
-  padding-inline: 0.08em;
-  background: linear-gradient(
-    transparent 58%,
-    color-mix(in srgb, var(--moss) 26%, transparent) 58%
-  );
-  color: inherit;
-}
-
-.reading-section > p.source-note {
-  max-width: 900px;
-  margin-top: 2rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--line);
-  font-size: clamp(0.95rem, 1.6vw, 1.05rem);
-  line-height: 1.7;
-}
-
-.source-note a {
-  color: var(--moss);
-  text-underline-offset: 0.2em;
-}
-
-.reading-section > p.transition-callout {
-  margin-top: 2rem;
-  padding: 1.2rem 1.4rem;
-  border-left: 3px solid var(--moss);
-  background: color-mix(in srgb, var(--moss) 8%, transparent);
-  color: var(--text);
-}
-
-/* ---------------------------------------------------------------
-   Tables — the single page-budget comparison
-   --------------------------------------------------------------- */
-
-.table-wrap {
-  max-width: 960px;
-  margin: 2rem 0;
-  overflow-x: auto;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--panel);
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-
-caption {
-  padding: 1rem 1rem 0.6rem;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.73rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-align: left;
-  text-transform: uppercase;
-}
-
-th,
-td {
-  padding: 1rem 0.75rem;
-  border-bottom: 1px solid var(--line);
-  color: var(--muted);
-  line-height: 1.45;
-  vertical-align: top;
-}
-
-thead th {
-  color: var(--text);
-  font-family: var(--mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-tbody th {
-  color: var(--text);
-}
-
-tbody tr:last-child > * {
-  border-bottom: 0;
-}
-
-.budget-table tbody tr:last-child td:last-child,
-.budget-table tbody tr:last-child th {
-  color: var(--text);
-  font-weight: 700;
-}
-
-/* ---------------------------------------------------------------
-   Arithmetic panel — shared shape with lesson 02's capacity example
-   --------------------------------------------------------------- */
-
-.capacity-example {
-  max-width: 960px;
-  margin: 2.25rem 0;
-  padding: clamp(1.4rem, 4vw, 2rem);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--panel);
-}
-
-.capacity-example p {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1.5rem;
-  margin: 0;
-}
-
-.capacity-example span {
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.capacity-example strong {
-  color: var(--text);
-  font-family: var(--serif);
-  font-size: clamp(2.1rem, 5vw, 3.6rem);
-}
-
-.capacity-example .capacity-math {
-  display: block;
-  margin: 1.1rem 0;
-  padding: 1rem 0;
-  border-block: 1px dashed var(--line);
-  color: var(--jade);
-  font-family: var(--mono);
-  font-size: clamp(0.8rem, 2vw, 1rem);
-  text-align: center;
-}
-
-/* ---------------------------------------------------------------
-   Prose beside a diagram
-   --------------------------------------------------------------- */
-
-.page-currency-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
-  gap: clamp(2rem, 6vw, 4rem);
-  align-items: start;
-  margin: 0 0 2.5rem;
-}
-
-.page-currency-layout > div > p {
-  margin: 0 0 1.3rem;
-  color: var(--muted);
-  font-size: clamp(1.05rem, 1.8vw, 1.2rem);
-  line-height: 1.85;
-}
-
-.page-currency-layout > div > p:last-child {
-  margin-bottom: 0;
-}
-
-/* ---------------------------------------------------------------
-   The request, and SQL blocks
-   --------------------------------------------------------------- */
-
-.query-example {
-  display: grid;
-  grid-template-columns: minmax(240px, 0.75fr) minmax(0, 1.25fr);
-  margin: 2rem 0 2.5rem;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--panel);
-  overflow: hidden;
-}
-
-.query-example > div {
-  display: grid;
-  align-content: center;
-  gap: 0.65rem;
-  padding: clamp(1.5rem, 4vw, 2.5rem);
-}
-
-.query-example span,
-.btree-guide > p,
-.plan-pair article > span {
   color: var(--jade);
   font: 800 0.67rem/1 var(--mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
-.query-example > div strong {
-  max-width: 360px;
-  font: 500 clamp(1.8rem, 3vw, 2.7rem)/1.08 var(--serif);
-}
-
-.query-example pre,
-.sql-block,
-.plan-pair pre {
-  margin: 0;
-  overflow-x: auto;
-  color: var(--text);
-  font: 500 0.85rem/1.75 var(--mono);
-  white-space: pre;
-}
-
-.query-example pre {
-  display: grid;
-  align-items: center;
-  min-height: 220px;
-  padding: clamp(1.5rem, 4vw, 2.5rem);
-  border-left: 1px solid var(--line);
-  background: var(--panel-strong);
-}
-
-.sql-block {
-  max-width: 760px;
-  margin: 2rem 0;
-  padding: 1.4rem;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel-strong);
-}
-
-/* ---------------------------------------------------------------
-   The B-tree search path
-   --------------------------------------------------------------- */
-
-.btree-guide {
-  padding: 1.4rem;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--panel);
-}
-
-.btree-guide > p {
-  margin: 0 0 1rem;
-}
-
-.tree-level,
-.tree-result {
+.model-row {
   display: grid;
   gap: 0.25rem;
-  padding: 0.9rem 1rem;
+  padding: 1rem;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--bg-soft);
 }
 
-.tree-level span,
-.tree-result span {
+.model-row span,
+.model-row small {
   color: var(--faint);
   font: 700 0.6rem/1 var(--mono);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-.tree-level strong,
-.tree-result strong {
-  font-size: 0.9rem;
-  line-height: 1.35;
+.model-row strong {
+  font-family: var(--serif);
+  font-size: 1.6rem;
+  line-height: 1.15;
 }
 
-.btree-guide > i {
-  display: block;
-  height: 1.4rem;
-  color: var(--faint);
-  font-style: normal;
-  line-height: 1.4rem;
-  text-align: center;
-}
-
-.leaf-level {
+.model-row:not(.model-disk) {
   border-color: color-mix(in srgb, var(--jade) 50%, var(--line));
 }
 
-.tree-result {
-  border-color: color-mix(in srgb, var(--moss) 50%, var(--line));
+.model-disk {
+  border-color: color-mix(in srgb, var(--moss) 45%, var(--line));
   background: color-mix(in srgb, var(--moss) 7%, transparent);
 }
 
-/* ---------------------------------------------------------------
-   Query plans, before and after
-   --------------------------------------------------------------- */
-
-.explain-command {
-  margin: 2rem 0 0.8rem;
-}
-
-.plan-pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.8rem;
-  margin-bottom: 2.5rem;
-}
-
-.plan-pair article {
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--panel);
-  overflow: hidden;
-}
-
-.plan-pair article > span {
-  display: block;
-  padding: 1rem 1.2rem;
-  border-bottom: 1px solid var(--line);
-}
-
-.plan-pair pre {
-  min-height: 190px;
-  padding: 1.2rem;
-}
-
-.plan-pair .preferred-plan {
-  border-color: color-mix(in srgb, var(--moss) 45%, var(--line));
-}
-
-/* ---------------------------------------------------------------
-   Closing line, gate, footer
-   --------------------------------------------------------------- */
-
-.dragon-line {
-  margin: clamp(2rem, 5vw, 3.5rem) 0 0;
-  padding: 1.25rem 0 0 1.4rem;
-  border-top: 1px solid var(--line);
-  border-left: 3px solid var(--moss);
-  color: var(--text);
-  font-family: var(--serif);
-  font-size: clamp(1.35rem, 2.8vw, 1.85rem);
-  line-height: 1.45;
-}
-
-.dragon-line span {
-  display: block;
-  margin-bottom: 0.45rem;
-  color: var(--moss);
-  font-family: var(--mono);
-  font-size: 0.72rem;
+.model-divider {
+  height: 1.6rem;
+  color: var(--faint);
   font-style: normal;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  line-height: 1.6rem;
+  text-align: center;
 }
 
-.closing-line {
-  max-width: 780px;
-  margin-top: 3rem;
-}
-
-.next-gate > a {
-  white-space: nowrap;
-}
-
-.footer-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.2rem;
-}
-
-/* ---------------------------------------------------------------
-   Narrow screens
-   --------------------------------------------------------------- */
-
-@media (max-width: 900px) {
-  .query-example {
-    grid-template-columns: 1fr;
-  }
-
-  .query-example pre {
-    min-height: 0;
-    border-top: 1px solid var(--line);
-    border-left: 0;
-  }
-}
-
-@media (max-width: 720px) {
-  .reading-section {
-    width: min(100% - 28px, 1180px);
-  }
-
-  .page-currency-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .plan-pair {
-    grid-template-columns: 1fr;
-  }
-
-  .plan-pair pre {
-    min-height: 0;
-  }
-
-  .capacity-example p {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  th,
-  td {
-    min-width: 120px;
-    padding: 0.85rem 0.6rem;
-    font-size: 0.9rem;
-  }
+.vault-model .model-note {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
 }
