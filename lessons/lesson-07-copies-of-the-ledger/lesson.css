@@ -1,5 +1,5 @@
 .replica-map { margin: 2.2rem 0; padding: clamp(1.25rem, 4vw, 2rem); border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
-.replica-primary { width: min(360px, 100%); margin: auto; padding: 1.3rem; border: 1px solid var(--moss); border-radius: 10px; background: rgb(183 243 107 / 5%); text-align: center; }
+.replica-primary { width: min(360px, 100%); margin: auto; padding: 1.3rem; border: 1px solid var(--moss); border-radius: 10px; background: color-mix(in srgb, var(--moss) 5%, transparent); text-align: center; }
 .replica-map span, .replica-map small { display: block; color: var(--faint); font: 700 0.62rem/1.4 var(--mono); text-transform: uppercase; }
 .replica-map strong { display: block; margin: 0.45rem 0; font: 500 1.9rem/1 var(--serif); }
 .replica-branch { display: grid; grid-template-columns: 1fr 1fr; width: 50%; height: 48px; margin: auto; }

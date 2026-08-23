@@ -22,21 +22,29 @@
 }
 
 .chapter-number {
-  margin: 0 0 1rem;
+  display: inline-flex;
+  width: fit-content;
+  margin: 0 0 1.25rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--jade) 38%, var(--line));
+  border-left: 3px solid var(--jade);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--jade) 6%, var(--panel));
   color: var(--jade);
   font-family: var(--mono);
-  font-size: clamp(0.92rem, 1.3vw, 1rem);
+  font-size: clamp(1rem, 1.4vw, 1.12rem);
   font-weight: 800;
+  line-height: 1.35;
   letter-spacing: 0.11em;
   text-transform: uppercase;
 }
 
 .reading-section h2 {
-  max-width: 900px;
-  margin: 0 0 1.75rem;
-  font-size: clamp(2.5rem, 5vw, 4.8rem);
+  max-width: 850px;
+  margin: 0 0 1.6rem;
+  font-size: clamp(2.25rem, 4vw, 3.85rem);
   font-weight: 500;
-  line-height: 1.02;
+  line-height: 1.08;
 }
 
 .reading-section h3 {
@@ -99,7 +107,7 @@
   text-underline-offset: 0.2em;
 }
 
-.reading-section > p.transition-callout {
+.reading-section p.transition-callout {
   margin-top: 2rem;
   padding: 1.2rem 1.4rem;
   border-left: 3px solid var(--moss);
@@ -331,19 +339,26 @@ tbody tr:last-child > * {
 
 .dragon-line {
   margin: clamp(2rem, 5vw, 3.5rem) 0 0;
-  padding: 1.25rem 0 0 1.4rem;
-  border-top: 1px solid var(--line);
-  border-left: 3px solid var(--moss);
+  padding: clamp(1.25rem, 3vw, 1.7rem);
+  border: 1px solid color-mix(in srgb, var(--ember) 38%, var(--line));
+  border-left: 3px solid var(--ember);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--ember) 11%, transparent), transparent 52%),
+    color-mix(in srgb, var(--ember) 5%, var(--panel));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ember) 12%, transparent);
   color: var(--text);
-  font-family: var(--serif);
+  font-family: var(--dragon);
+  font-weight: 600;
+  letter-spacing: -0.012em;
   font-size: clamp(1.35rem, 2.8vw, 1.85rem);
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .dragon-line span {
   display: block;
   margin-bottom: 0.45rem;
-  color: var(--moss);
+  color: var(--ember);
   font-family: var(--mono);
   font-size: 0.72rem;
   font-style: normal;

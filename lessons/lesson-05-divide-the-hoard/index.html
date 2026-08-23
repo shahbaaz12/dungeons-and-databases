@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Learn PostgreSQL partitioning, pruning, partition keys, retention, maintenance, and the one-machine ceiling." />
-    <meta name="theme-color" content="#0b0d0c" />
+    <meta name="theme-color" content="#2c2c2c" />
     <meta property="og:type" content="article" />
     <meta property="og:title" content="Divide the Hoard · Dungeons &amp; Databases" />
     <meta property="og:description" content="Use partitions to skip regions and manage time-series data—without mistaking them for more machines." />
@@ -13,17 +13,17 @@
     <meta name="twitter:title" content="Divide the Hoard · Dungeons &amp; Databases" />
     <meta name="twitter:description" content="Partition for pruning and lifecycle boundaries, not write scale." />
     <title>Lesson 05 · Divide the Hoard · Dungeons &amp; Databases</title>
-    <link rel="stylesheet" href="../../styles.css" />
-    <link rel="stylesheet" href="../lesson-shared.css" />
-    <link rel="stylesheet" href="../lesson-reading.css" />
-    <link rel="stylesheet" href="./lesson.css" />
-    <script src="../../site.js" defer></script>
+    <link rel="stylesheet" href="../../styles.css?v=20260823m" />
+    <link rel="stylesheet" href="../lesson-shared.css?v=20260823j" />
+    <link rel="stylesheet" href="../lesson-reading.css?v=20260823l" />
+    <link rel="stylesheet" href="./lesson.css?v=20260823i" />
+    <script src="../../site.js?v=20260823k" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#lesson-content">Skip to the lesson</a>
     <header class="site-header lesson-header">
-      <a class="brand" href="../../index.html" aria-label="Return to Dungeons and Databases home"><span class="brand-mark" aria-hidden="true">D<span>&amp;</span>D</span><span class="brand-copy"><strong>Dungeons &amp; Databases</strong><small>Split the Realm</small></span></a>
-      <div class="header-actions"><span class="lesson-badge">Lesson 05</span><span class="lesson-header-name">Walls within the vault</span><button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme"><span aria-hidden="true" data-theme-icon>☀</span><span data-theme-label>Light</span></button></div>
+      <a class="brand" href="../../index.html" aria-label="Return to Dungeons and Databases home"><span class="brand-mark" aria-hidden="true"><b>D</b><span>&amp;</span><b>D</b></span><span class="brand-copy"><strong>Dungeons &amp; Databases</strong><small>Split the Realm</small></span></a>
+      <div class="header-actions"><span class="lesson-badge">Lesson 05</span><span class="lesson-header-name">Walls within the vault</span><button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme"><span class="theme-toggle-icon" data-theme-icon aria-hidden="true"></span><span data-theme-label>Light</span></button></div>
     </header>
 
     <main id="lesson-content">
@@ -38,7 +38,7 @@
           <div class="lesson-tags" aria-label="Lesson concepts"><span>Partition keys</span><span>Pruning</span><span>Retention</span><span>One-machine ceiling</span></div>
         </div>
         <aside class="dragon-counsel compact" aria-labelledby="opening-counsel">
-          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
+          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" width="1672" height="941" decoding="async" /></div>
           <div><p class="eyebrow">The Dragon’s Counsel</p><blockquote id="opening-counsel">“A wall helps only when the traveler knows which gate to enter.”</blockquote><p>The partition key must match the questions and lifecycle of the data.</p></div>
         </aside>
       </section>

@@ -7,7 +7,7 @@
       name="description"
       content="A guided journey from database pages and indexes to caching, replication, partitioning, sharding, and consistency."
     />
-    <meta name="theme-color" content="#0b0d0c" />
+    <meta name="theme-color" content="#2c2c2c" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Dungeons &amp; Databases · Split the Realm" />
     <meta
@@ -26,15 +26,15 @@
     />
     <meta name="twitter:image" content="https://shahbaaz12.github.io/dungeons-and-databases/public/og.png" />
     <title>Dungeons &amp; Databases · Split the Realm</title>
-    <link rel="stylesheet" href="./styles.css" />
-    <script src="./site.js" defer></script>
+    <link rel="stylesheet" href="./styles.css?v=20260823m" />
+    <script src="./site.js?v=20260823k" defer></script>
   </head>
-  <body>
+  <body class="home-page">
     <a class="skip-link" href="#main-content">Skip to the journey</a>
 
     <header class="site-header">
       <a class="brand" href="./index.html" aria-label="Dungeons and Databases home">
-        <span class="brand-mark" aria-hidden="true">D<span>&amp;</span>D</span>
+        <span class="brand-mark" aria-hidden="true"><b>D</b><span>&amp;</span><b>D</b></span>
         <span class="brand-copy">
           <strong>Dungeons &amp; Databases</strong>
           <small>Split the Realm</small>
@@ -44,7 +44,7 @@
       <div class="header-actions">
         <span class="unlock-badge"><i aria-hidden="true"></i> All 08 lessons unlocked</span>
         <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme">
-          <span aria-hidden="true" data-theme-icon>☀</span>
+          <span class="theme-toggle-icon" data-theme-icon aria-hidden="true"></span>
           <span data-theme-label>Light</span>
         </button>
       </div>
@@ -56,9 +56,8 @@
           <p class="eyebrow"><span>System design journey</span><span class="eyebrow-rule"></span></p>
           <h1>Before you split the realm, learn what is breaking.</h1>
           <p class="hero-lede">
-            Follow one growing database from its first slow query through indexes, caches, replicas,
-            partitions, shards, and consistency choices.
-            Every new piece of architecture must earn its place.
+            Follow one growing database through slow queries, indexes, caches, replicas, partitions,
+            shards, and the consistency choices each step demands.
           </p>
 
           <div class="hero-actions">
@@ -76,6 +75,17 @@
         </div>
 
         <div class="hero-stage" aria-label="The current database architecture">
+          <div class="vault-art" aria-hidden="true">
+            <img
+              src="./public/vault-archive.webp"
+              alt=""
+              width="1122"
+              height="1402"
+              fetchpriority="high"
+              decoding="async"
+            />
+          </div>
+
           <div class="stage-heading">
             <span>Where the story begins</span>
             <span class="status-dot">Under pressure</span>
@@ -101,7 +111,6 @@
 
           <div class="pressure-readout">
             <span>Working set</span>
-            <div class="pressure-track" aria-hidden="true"><i></i></div>
             <strong>118% of memory</strong>
           </div>
 
@@ -113,7 +122,7 @@
 
       <section class="dragon-arrival section-shell" aria-labelledby="dragon-title">
         <div class="dragon-seal" aria-hidden="true">
-          <img src="./public/og.png" alt="" />
+          <img src="./public/og.png" alt="" width="1672" height="941" loading="lazy" decoding="async" />
           <i></i>
         </div>
         <div class="dragon-message">
@@ -124,14 +133,13 @@
             through the machinery beneath their tables. We will split nothing until we know what the split
             is meant to solve.
           </p>
-          <p class="dragon-signature">— The Archivist, keeper of the deep ledger</p>
+          <p class="dragon-signature">The Archivist, keeper of the deep ledger</p>
         </div>
       </section>
 
       <section class="journey section-shell" id="journey" aria-labelledby="journey-title">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">The map of the realm</p>
             <h2 id="journey-title">Every lesson adds one justified decision.</h2>
           </div>
           <p>
@@ -144,6 +152,7 @@
           <li class="lesson-card lesson-card-active">
             <a href="./lessons/lesson-01-the-groaning-vault/">
               <span class="lesson-number">01</span>
+              <span class="lesson-visual" data-mark="pulse" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
               <span class="lesson-state">Unlocked</span>
               <span class="lesson-kicker">The first warning</span>
               <strong>The Groaning Vault</strong>
@@ -155,6 +164,7 @@
           <li class="lesson-card lesson-card-active">
             <a href="./lessons/lesson-02-beneath-the-vault/">
               <span class="lesson-number">02</span>
+              <span class="lesson-visual" data-mark="pages" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
               <span class="lesson-state">Unlocked</span>
               <span class="lesson-kicker">Inside the machine</span>
               <strong>Beneath the Vault</strong>
@@ -166,6 +176,7 @@
           <li class="lesson-card lesson-card-active">
             <a href="./lessons/lesson-03-the-dragons-gift/">
               <span class="lesson-number">03</span>
+              <span class="lesson-visual" data-mark="tree" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
               <span class="lesson-state">Unlocked</span>
               <span class="lesson-kicker">Where, not just what</span>
               <strong>The Dragon&#8217;s Power</strong>
@@ -177,6 +188,7 @@
           <li class="lesson-card lesson-card-active">
             <a href="./lessons/lesson-04-the-dragons-debt/">
               <span class="lesson-number">04</span>
+              <span class="lesson-visual" data-mark="log" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
               <span class="lesson-state">Unlocked</span>
               <span class="lesson-kicker">The bill arrives</span>
               <strong>The Dragon’s Debt</strong>
@@ -188,6 +200,7 @@
           <li class="lesson-card lesson-card-active">
             <a href="./lessons/lesson-05-divide-the-hoard/">
               <span class="lesson-number">05</span>
+              <span class="lesson-visual" data-mark="partitions" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
               <span class="lesson-state">Unlocked</span>
               <span class="lesson-kicker">Boundaries within</span>
               <strong>Divide the Hoard</strong>
@@ -199,6 +212,7 @@
           <li class="lesson-card lesson-card-active">
             <a href="./lessons/lesson-06-across-many-keeps/">
               <span class="lesson-number">06</span>
+              <span class="lesson-visual" data-mark="shards" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
               <span class="lesson-state">Unlocked</span>
               <span class="lesson-kicker">Beyond one keep</span>
               <strong>Across Many Keeps</strong>
@@ -210,6 +224,7 @@
           <li class="lesson-card lesson-card-active">
             <a href="./lessons/lesson-07-copies-of-the-ledger/">
               <span class="lesson-number">07</span>
+              <span class="lesson-visual" data-mark="replicas" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
               <span class="lesson-state">Unlocked</span>
               <span class="lesson-kicker">Copy for reads</span>
               <strong>Copies of the Ledger</strong>
@@ -221,6 +236,7 @@
           <li class="lesson-card lesson-card-active">
             <a href="./lessons/lesson-08-the-price-of-many-realms/">
               <span class="lesson-number">08</span>
+              <span class="lesson-visual" data-mark="balance" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
               <span class="lesson-state">Unlocked</span>
               <span class="lesson-kicker">The hidden bill</span>
               <strong>The Price of Many Realms</strong>
@@ -231,7 +247,8 @@
           </li>
           <li class="lesson-card lesson-card-active lesson-card-bonus">
             <a href="./lessons/lesson-09-the-keepers-judgement/">
-              <span class="lesson-number">&#9733;</span>
+              <span class="lesson-number">09</span>
+              <span class="lesson-visual" data-mark="compass" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
               <span class="lesson-state">Bonus</span>
               <span class="lesson-kicker">Advanced</span>
               <strong>The Keeper&#8217;s Judgement</strong>
@@ -244,9 +261,8 @@
       </section>
 
       <section class="final-promise section-shell">
-        <p class="eyebrow">The promise at the gate</p>
         <blockquote>
-          “When you leave this realm, you will not ask how to shard first. You will ask what has run out—and
+          “When you leave this realm, you will not ask how to shard first. You will ask what has run out, and
           know which tool earns the right to fix it.”
         </blockquote>
         <span>The Archivist</span>

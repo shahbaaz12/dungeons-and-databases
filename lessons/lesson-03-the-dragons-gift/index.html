@@ -7,7 +7,7 @@
       name="description"
       content="Rows live in pages — but which page? Learn how an index turns a hundred page reads into three, and why that finally lets memory work."
     />
-    <meta name="theme-color" content="#0b0d0c" />
+    <meta name="theme-color" content="#2c2c2c" />
     <meta property="og:type" content="article" />
     <meta property="og:title" content="The Dragon’s Gift · Dungeons &amp; Databases" />
     <meta property="og:description" content="An index does not add memory or speed up the disk. It shrinks what you must look at." />
@@ -16,18 +16,18 @@
     <meta name="twitter:title" content="The Dragon’s Gift · Dungeons &amp; Databases" />
     <meta name="twitter:description" content="An index does not add memory or speed up the disk. It shrinks what you must look at." />
     <title>Lesson 03 · The Dragon’s Gift · Dungeons &amp; Databases</title>
-    <link rel="stylesheet" href="../../styles.css" />
-    <link rel="stylesheet" href="../lesson-shared.css" />
-    <link rel="stylesheet" href="../lesson-reading.css" />
-    <link rel="stylesheet" href="./lesson.css" />
-    <script src="../../site.js" defer></script>
+    <link rel="stylesheet" href="../../styles.css?v=20260823m" />
+    <link rel="stylesheet" href="../lesson-shared.css?v=20260823j" />
+    <link rel="stylesheet" href="../lesson-reading.css?v=20260823l" />
+    <link rel="stylesheet" href="./lesson.css?v=20260823h" />
+    <script src="../../site.js?v=20260823k" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#lesson-content">Skip to the lesson</a>
 
     <header class="site-header lesson-header">
       <a class="brand" href="../../index.html" aria-label="Return to Dungeons and Databases home">
-        <span class="brand-mark" aria-hidden="true">D<span>&amp;</span>D</span>
+        <span class="brand-mark" aria-hidden="true"><b>D</b><span>&amp;</span><b>D</b></span>
         <span class="brand-copy">
           <strong>Dungeons &amp; Databases</strong>
           <small>Split the Realm</small>
@@ -37,10 +37,7 @@
       <div class="header-actions">
         <span class="lesson-badge">Lesson 03</span>
         <span class="lesson-header-name">The Dragon’s Gift</span>
-        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme">
-          <span aria-hidden="true" data-theme-icon>☀</span>
-          <span data-theme-label>Light</span>
-        </button>
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light theme"><span class="theme-toggle-icon" data-theme-icon aria-hidden="true"></span><span data-theme-label>Light</span></button>
       </div>
     </header>
 
@@ -59,7 +56,7 @@
         </div>
 
         <aside class="dragon-counsel compact" aria-labelledby="opening-counsel">
-          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" /></div>
+          <div class="dragon-counsel-avatar" aria-hidden="true"><img src="../../public/og.png" alt="" width="1672" height="941" decoding="async" /></div>
           <div>
             <p class="eyebrow">The Dragon’s Counsel</p>
             <blockquote id="opening-counsel">
@@ -74,21 +71,36 @@
         <section class="reading-section" aria-labelledby="question-title">
           <p class="chapter-number">01 · The question left open</p>
           <h2 id="question-title">Knowing rows live in pages does not tell you where.</h2>
-          <p>
-            We ended lesson 02 with a working machine. Rows live in 8 KB pages. Pages must occupy a slot in
-            the buffer pool before anything can be read. Hot pages survive the clock sweep, cold pages are
-            evicted.
-          </p>
-          <p>
-            All true — and all of it assumes someone already knows <em>which page to ask for</em>. Nothing so
-            far provides that. If you ask for a specific customer’s orders, what tells the database that the
-            row is on page 41,912 rather than page 3?
-          </p>
-          <p>
-            Without an answer, there is only one strategy that is guaranteed to work:
-            <mark class="quiet-highlight">look at everything.</mark> This lesson is about what that costs,
-            and what changes when you no longer have to.
-          </p>
+          <div class="reading-side-layout">
+            <div class="side-copy">
+              <p>
+                We ended lesson 02 with a working machine. Rows live in 8 KB pages. Pages must occupy a slot in
+                the buffer pool before anything can be read. Hot pages survive the clock sweep, cold pages are
+                evicted.
+              </p>
+              <p>
+                All true — and all of it assumes someone already knows <em>which page to ask for</em>. Nothing so
+                far provides that. If you ask for a specific customer’s orders, what tells the database that the
+                row is on page 41,912 rather than page 3?
+              </p>
+              <p>
+                Without an answer, there is only one strategy that is guaranteed to work:
+                <mark class="quiet-highlight">look at everything.</mark> This lesson is about what that costs,
+                and what changes when you no longer have to.
+              </p>
+            </div>
+
+            <figure class="lesson-side-visual scan-map-visual" aria-labelledby="scan-map-caption">
+              <figcaption id="scan-map-caption">No address to follow</figcaption>
+              <div class="scan-page-row" aria-hidden="true">
+                <span>01</span><span>02</span><span>03</span><i>…</i><span class="target-page">73</span>
+              </div>
+              <div class="visual-verdict">
+                <small>Only available plan</small>
+                <strong>Open each page until the row appears.</strong>
+              </div>
+            </figure>
+          </div>
         </section>
 
         <section class="reading-section" aria-labelledby="vault-title">
@@ -133,39 +145,60 @@
         <section class="reading-section" aria-labelledby="without-title">
           <p class="chapter-number">03 · Without the power</p>
           <h2 id="without-title">Every query starts from scratch, and the buffer pool never helps.</h2>
-          <p>
-            You want one specific row. Nothing tells the database which page holds it, so there is only one
-            option: read page 1 and check its ten rows, read page 2 and check its ten rows, and keep going.
-          </p>
-          <p>
-            Suppose the row lives on <strong>page 73</strong>. That is <strong>73 page reads to answer one
-            query</strong>.
-          </p>
-          <p>
-            And the buffer pool did not help once. It holds ten pages, so by the time the scan reaches page
-            73 it is holding pages 64 to 73. Pages 1 to 63 were read, scanned, and evicted to make room for
-            the pages that came after them.
-          </p>
+          <div class="reading-side-layout scan-cycle-layout">
+            <div class="side-copy">
+              <p>
+                You want one specific row. Nothing tells the database which page holds it, so there is only one
+                option: read page 1 and check its ten rows, read page 2 and check its ten rows, and keep going.
+              </p>
+              <p>
+                Suppose the row lives on <strong>page 73</strong>. That is <strong>73 page reads to answer one
+                query</strong>.
+              </p>
+              <p>
+                And the buffer pool did not help once. It holds ten pages, so by the time the scan reaches page
+                73 it is holding pages 64 to 73. Pages 1 to 63 were read, scanned, and evicted to make room for
+                the pages that came after them.
+              </p>
 
-          <p class="transition-callout">
-            Now ask for a row on <strong>page 12</strong>. It was in memory moments ago — the scan for page
-            73 evicted it. So this query starts at page 1 and walks again. Twelve more reads.
-          </p>
+              <p class="transition-callout">
+                Now ask for a row on <strong>page 12</strong>. It was in memory moments ago — the scan for page
+                73 evicted it. So this query starts at page 1 and walks again. Twelve more reads.
+              </p>
 
-          <p>
-            That is the failure mode in one sentence:
-            <mark class="quiet-highlight">the buffer pool is always full, but never full of the right
-            thing.</mark> Every page is read once and discarded before it is ever wanted again. You are
-            paying the full price of memory and receiving none of its benefit.
-          </p>
+              <p>
+                That is the failure mode in one sentence:
+                <mark class="quiet-highlight">the buffer pool is always full, but never full of the right
+                thing.</mark> Every page is read once and discarded before it is ever wanted again. You are
+                paying the full price of memory and receiving none of its benefit.
+              </p>
 
-          <h3>One honest correction, and it makes things worse</h3>
-          <p>
-            The count above assumes the scan can stop at page 73 because it found what it wanted. A real
-            sequential scan usually <em>cannot stop early</em> — nothing guarantees there isn’t another
-            matching row further on, so it must read to the end. The realistic number is not 73 page reads.
-            It is <strong>100</strong>.
-          </p>
+              <h3>One honest correction, and it makes things worse</h3>
+              <p>
+                The count above assumes the scan can stop at page 73 because it found what it wanted. A real
+                sequential scan usually <em>cannot stop early</em> — nothing guarantees there isn’t another
+                matching row further on, so it must read to the end. The realistic number is not 73 page reads.
+                It is <strong>100</strong>.
+              </p>
+            </div>
+
+            <figure class="lesson-side-visual scan-cycle-visual" aria-labelledby="scan-cycle-caption">
+              <figcaption id="scan-cycle-caption">The scan forgets</figcaption>
+              <div class="cycle-step">
+                <small>Query 1</small>
+                <strong>Page 1 → … → Page 73</strong>
+              </div>
+              <div class="cycle-step buffer-state">
+                <small>Buffer now holds</small>
+                <strong>Pages 64-73</strong>
+              </div>
+              <div class="cycle-step restart-step">
+                <small>Next request needs page 12</small>
+                <strong>Restart at page 1</strong>
+              </div>
+              <p>Full memory. Wrong working set. Another disk walk.</p>
+            </figure>
+          </div>
         </section>
 
         <section class="reading-section" aria-labelledby="gift-title">
@@ -207,38 +240,72 @@
             itself &#8212; it writes down, in advance, which page to look at next.
           </p>
 
-          <h3>What a B-tree is</h3>
-          <p>
-            A <strong>B-tree</strong> is a stack of sorted pages. The bottom level, the <strong>leaves</strong>,
-            holds every entry in order. Each level above holds <strong>signposts</strong>: <em>keys up to here
-            live on that page; keys up to there live on the next one.</em> You start at the single page on top
-            and follow signposts down until you reach a leaf.
-          </p>
-          <p>
-            The <em>B</em> stands for balanced, and it earns its place: every leaf sits the same distance from
-            the top. So every lookup costs the same number of page reads.
-            <mark class="quiet-highlight">There is no unlucky row.</mark>
-          </p>
+          <div class="subsection-side-layout">
+            <div class="subsection-copy">
+              <h3>What a B-tree is</h3>
+              <p>
+                A <strong>B-tree</strong> is a stack of sorted pages. The bottom level, the <strong>leaves</strong>,
+                holds every entry in order. Each level above holds <strong>signposts</strong>: <em>keys up to here
+                live on that page; keys up to there live on the next one.</em> You start at the single page on top
+                and follow signposts down until you reach a leaf.
+              </p>
+              <p>
+                The <em>B</em> stands for balanced, and it earns its place: every leaf sits the same distance from
+                the top. So every lookup costs the same number of page reads.
+                <mark class="quiet-highlight">There is no unlucky row.</mark>
+              </p>
+            </div>
 
-          <h3>How PostgreSQL builds ours</h3>
-          <p>
-            B-tree is PostgreSQL&#8217;s default index type &#8212; a plain <code>CREATE INDEX</code> gives you one
-            unless you ask for something else. For our 1,000 rows it comes out two levels deep:
-          </p>
-          <ul>
-            <li><strong>4 leaf pages</strong>, holding 250 sorted entries each.</li>
-            <li><strong>1 root page</strong> above them, holding four signposts &#8212; one per leaf.</li>
-          </ul>
-          <p>
-            Five pages in total, against the table&#8217;s 100. A lookup reads the root, then the one leaf the
-            root pointed at, then the one table page holding the row. <strong>Three page reads.</strong>
-          </p>
-          <p>
-            And when the table grows, the tree gets <em>taller</em> rather than wider &#8212; which is
-            remarkably slow growth. One level covers 250 rows, two cover 62,500, three cover more than 15
-            million. That is why even an enormous table stays three or four pages away from any row you ask
-            for.
-          </p>
+            <figure class="lesson-side-visual btree-visual" aria-labelledby="btree-caption">
+              <figcaption id="btree-caption">A balanced two-level tree</figcaption>
+              <div class="tree-root"><small>Root page</small><strong>4 signposts</strong></div>
+              <div class="tree-connector" aria-hidden="true"></div>
+              <div class="tree-leaves" aria-hidden="true">
+                <span>1-250</span><span>251-500</span><span>501-750</span><span>751-1000</span>
+              </div>
+              <p>Every leaf is one step below the root.</p>
+            </figure>
+          </div>
+
+          <div class="subsection-side-layout build-layout">
+            <div class="subsection-copy">
+              <h3>How PostgreSQL builds ours</h3>
+              <p>
+                B-tree is PostgreSQL&#8217;s default index type &#8212; a plain <code>CREATE INDEX</code> gives you one
+                unless you ask for something else. For our 1,000 rows it comes out two levels deep:
+              </p>
+              <ul>
+                <li><strong>4 leaf pages</strong>, holding 250 sorted entries each.</li>
+                <li><strong>1 root page</strong> above them, holding four signposts &#8212; one per leaf.</li>
+              </ul>
+              <p>
+                Five pages in total, against the table&#8217;s 100. A lookup reads the root, then the one leaf the
+                root pointed at, then the one table page holding the row. <strong>Three page reads.</strong>
+              </p>
+              <p>
+                And when the table grows, the tree gets <em>taller</em> rather than wider &#8212; which is
+                remarkably slow growth. One level covers 250 rows, two cover 62,500, three cover more than 15
+                million. That is why even an enormous table stays three or four pages away from any row you ask
+                for.
+              </p>
+            </div>
+
+            <figure class="lesson-side-visual index-build-visual" aria-labelledby="index-build-caption">
+              <figcaption id="index-build-caption">Our 1,000-row index</figcaption>
+              <div class="index-page-stack" aria-hidden="true">
+                <span class="root-page">1 root</span>
+                <span>Leaf 1</span><span>Leaf 2</span><span>Leaf 3</span><span>Leaf 4</span>
+              </div>
+              <div class="lookup-route">
+                <span><small>Read 1</small><strong>Root</strong></span>
+                <i aria-hidden="true">→</i>
+                <span><small>Read 2</small><strong>One leaf</strong></span>
+                <i aria-hidden="true">→</i>
+                <span><small>Read 3</small><strong>Table page</strong></span>
+              </div>
+              <p>Five index pages exist. One lookup touches only two of them.</p>
+            </figure>
+          </div>
 
           <h3>The magic</h3>
           <p>

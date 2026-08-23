@@ -1,6 +1,6 @@
 .lesson-header-name,
 .lesson-badge {
-  font: 800 0.78rem/1 var(--mono);
+  font: 800 0.8rem/1 var(--mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -9,7 +9,7 @@
   padding: 0.55rem 0.75rem;
   border-radius: 999px;
   background: var(--moss);
-  color: #11190d;
+  color: var(--accent-ink);
 }
 
 .lesson-header-name { color: var(--muted); }
@@ -25,13 +25,14 @@
 
 .lesson-hero h1 {
   max-width: 880px;
-  font-size: clamp(3.4rem, 6.8vw, 7rem);
+  font-size: clamp(3.15rem, 5.7vw, 5.85rem);
+  line-height: 1.06;
 }
 
 .lesson-hero-copy > p:not(.eyebrow) {
   max-width: 720px;
   color: var(--muted);
-  font-size: clamp(1.05rem, 1.7vw, 1.22rem);
+  font-size: clamp(1.1rem, 1.7vw, 1.26rem);
 }
 
 code {
@@ -43,7 +44,7 @@ code {
   padding: 0.18em 0.38em;
   border: 1px solid color-mix(in srgb, var(--moss) 32%, var(--line));
   border-radius: 5px;
-  background: rgb(183 243 107 / 7%);
+  background: color-mix(in srgb, var(--moss) 7%, transparent);
   font-size: 0.86em;
 }
 
@@ -59,7 +60,7 @@ code {
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--muted);
-  font: 700 0.73rem/1 var(--mono);
+  font: 700 0.78rem/1 var(--mono);
 }
 
 .dragon-counsel {
@@ -70,13 +71,20 @@ code {
   padding: clamp(1.5rem, 4vw, 2.5rem);
   border: 1px solid var(--line);
   border-radius: 16px;
-  background: radial-gradient(circle at 0 0, rgb(237 142 85 / 8%), transparent 18rem), var(--panel);
+  background: radial-gradient(circle at 0 0, color-mix(in srgb, var(--ember) 8%, transparent), transparent 18rem), var(--panel);
 }
 
 .dragon-counsel.compact {
-  grid-template-columns: 68px 1fr;
+  position: relative;
+  isolation: isolate;
+  grid-template-columns: minmax(104px, 0.78fr) minmax(190px, 1.22fr);
+  gap: 0;
   align-self: end;
-  padding: 1.5rem;
+  align-items: stretch;
+  min-height: 286px;
+  padding: 0;
+  background: var(--panel);
+  overflow: hidden;
 }
 
 .dragon-counsel-avatar {
@@ -86,7 +94,7 @@ code {
   aspect-ratio: 1;
   border: 1px solid var(--line-bright);
   border-radius: 50%;
-  background: radial-gradient(circle, rgb(82 214 189 / 14%), transparent 70%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--jade) 14%, transparent), transparent 70%);
   overflow: hidden;
 }
 
@@ -94,13 +102,46 @@ code {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: 84% center;
-  filter: saturate(0.78) contrast(1.05);
+  object-position: 100% center;
+  filter: grayscale(0.3) sepia(0.42) saturate(0.82) contrast(1.05) brightness(1.03);
+  transform: scale(1.22);
+  transform-origin: right center;
 }
 
-.compact .dragon-counsel-avatar { width: 68px; }
+.compact .dragon-counsel-avatar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 0;
+  width: 68%;
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: inherit;
+}
+.compact .dragon-counsel-avatar img {
+  object-position: 100% center;
+  filter: grayscale(0.34) sepia(0.44) saturate(0.76) contrast(1.06) brightness(0.9);
+  opacity: 0.9;
+  transform: scale(1.18);
+  -webkit-mask-image: linear-gradient(90deg, #000 0 50%, rgb(0 0 0 / 72%) 68%, transparent 100%);
+  mask-image: linear-gradient(90deg, #000 0 50%, rgb(0 0 0 / 72%) 68%, transparent 100%);
+}
+.compact > div:last-child {
+  position: relative;
+  z-index: 1;
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-self: stretch;
+  min-width: 0;
+  padding: clamp(1.25rem, 3vw, 1.75rem) clamp(1.2rem, 2.6vw, 1.6rem) clamp(1.25rem, 3vw, 1.75rem) 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--panel) 84%, transparent) 24%, var(--panel) 62%);
+}
+.dragon-counsel.compact blockquote { font-size: clamp(1.25rem, 1.8vw, 1.7rem); line-height: 1.28; text-wrap: pretty; }
 .dragon-counsel blockquote { margin: 0; font-size: clamp(1.4rem, 2.4vw, 2rem); line-height: 1.22; }
-.dragon-counsel p:last-child { margin-bottom: 0; color: var(--muted); font-size: 0.92rem; }
+.dragon-counsel p:last-child { margin-bottom: 0; color: var(--muted); font-size: 0.98rem; }
 
 .lesson-section { padding-block: clamp(5rem, 10vw, 9rem); }
 .lesson-section + .lesson-section { border-top: 1px solid var(--line); }
@@ -117,11 +158,11 @@ code {
 .reckoning-intro > p:last-child { color: var(--muted); font-size: 1.04rem; }
 .standing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 2.5rem; }
 .standing-grid article { min-height: 190px; padding: 1.5rem; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
-.standing-grid span { color: var(--jade); font: 700 0.72rem/1 var(--mono); text-transform: uppercase; }
+.standing-grid span { color: var(--jade); font: 700 0.78rem/1 var(--mono); text-transform: uppercase; }
 .standing-grid strong { display: block; margin-top: 0.8rem; font: 500 1.7rem/1.1 var(--serif); }
 .standing-grid p { color: var(--muted); }
 
-.next-gate { display: grid; grid-template-columns: 1fr auto; gap: 1rem 2rem; align-items: center; margin-top: 3rem; padding: clamp(1.5rem, 4vw, 2.5rem); border: 1px solid var(--line); border-radius: 14px; background: radial-gradient(circle at 100% 50%, rgb(82 214 189 / 8%), transparent 22rem), var(--panel); }
+.next-gate { display: grid; grid-template-columns: 1fr auto; gap: 1rem 2rem; align-items: center; margin-top: 3rem; padding: clamp(1.5rem, 4vw, 2.5rem); border: 1px solid var(--line); border-radius: 14px; background: radial-gradient(circle at 100% 50%, color-mix(in srgb, var(--jade) 8%, transparent), transparent 22rem), var(--panel); }
 .next-gate span { color: var(--jade); font: 700 0.72rem/1 var(--mono); text-transform: uppercase; }
 .next-gate h3 { margin: 0.5rem 0 0; font: 500 clamp(2rem, 4vw, 3.4rem)/1 var(--serif); }
 .next-gate p { margin-bottom: 0; color: var(--muted); }
@@ -144,6 +185,27 @@ code {
 @media (max-width: 560px) {
   .lesson-hero h1 { font-size: clamp(3rem, 15vw, 4.5rem); }
   .dragon-counsel, .dragon-counsel.compact { grid-template-columns: 1fr; }
+  .dragon-counsel.compact { min-height: 340px; }
+  .compact .dragon-counsel-avatar {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border-radius: inherit;
+  }
+  .compact .dragon-counsel-avatar img {
+    object-position: 100% 34%;
+    opacity: 0.68;
+    transform: scale(1.28);
+    -webkit-mask-image: linear-gradient(180deg, #000 0 32%, rgb(0 0 0 / 55%) 54%, transparent 82%);
+    mask-image: linear-gradient(180deg, #000 0 32%, rgb(0 0 0 / 55%) 54%, transparent 82%);
+  }
+  .compact > div:last-child {
+    grid-column: 1;
+    justify-content: end;
+    padding: 9rem 1.35rem 1.4rem;
+    background: linear-gradient(180deg, transparent 0 28%, color-mix(in srgb, var(--panel) 88%, transparent) 62%, var(--panel) 82%);
+  }
 }
 
 .gate-actions {
