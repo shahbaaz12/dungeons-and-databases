@@ -25,9 +25,9 @@
   margin: 0 0 1rem;
   color: var(--jade);
   font-family: var(--mono);
-  font-size: 0.78rem;
+  font-size: clamp(0.92rem, 1.3vw, 1rem);
   font-weight: 800;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
 }
 
@@ -69,6 +69,11 @@
 .reading-section p strong,
 .reading-section li strong {
   color: var(--text);
+}
+
+/* long inline identifiers must not push the page sideways on narrow screens */
+.reading-section code {
+  overflow-wrap: anywhere;
 }
 
 .quiet-highlight {
@@ -144,16 +149,17 @@ caption {
   padding: 1rem 1rem 0.6rem;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 0.73rem;
+  font-size: 0.83rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-align: left;
   text-transform: uppercase;
 }
 
 th,
 td {
-  padding: 1rem 0.75rem;
+  padding: 1rem 0.8rem;
+  font-size: 0.98rem;
   border-bottom: 1px solid var(--line);
   color: var(--muted);
   line-height: 1.45;
@@ -163,8 +169,8 @@ td {
 thead th {
   color: var(--text);
   font-family: var(--mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -399,7 +405,7 @@ tbody tr:last-child > * {
   td {
     min-width: 110px;
     padding: 0.85rem 0.6rem;
-    font-size: 0.9rem;
+    font-size: 0.94rem;
   }
 }
 
@@ -420,7 +426,7 @@ tbody tr:last-child > * {
   border-radius: 12px;
   background: var(--panel);
   color: var(--muted);
-  font-size: clamp(1rem, 1.7vw, 1.1rem);
+  font-size: clamp(1.05rem, 1.7vw, 1.15rem);
   line-height: 1.75;
 }
 

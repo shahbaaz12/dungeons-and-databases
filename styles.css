@@ -225,8 +225,8 @@ button,
 .eyebrow {
   margin: 0 0 1rem;
   color: var(--jade);
-  font: 800 0.69rem/1.3 var(--mono);
-  letter-spacing: 0.16em;
+  font: 800 0.8rem/1.3 var(--mono);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 

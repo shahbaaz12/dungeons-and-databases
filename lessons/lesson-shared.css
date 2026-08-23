@@ -1,7 +1,7 @@
 .lesson-header-name,
 .lesson-badge {
-  font: 800 0.67rem/1 var(--mono);
-  letter-spacing: 0.1em;
+  font: 800 0.78rem/1 var(--mono);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -12,7 +12,7 @@
   color: #11190d;
 }
 
-.lesson-header-name { color: var(--faint); }
+.lesson-header-name { color: var(--muted); }
 
 .lesson-hero {
   display: grid;
@@ -59,7 +59,7 @@ code {
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--muted);
-  font: 700 0.64rem/1 var(--mono);
+  font: 700 0.73rem/1 var(--mono);
 }
 
 .dragon-counsel {
@@ -117,12 +117,12 @@ code {
 .reckoning-intro > p:last-child { color: var(--muted); font-size: 1.04rem; }
 .standing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 2.5rem; }
 .standing-grid article { min-height: 190px; padding: 1.5rem; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
-.standing-grid span { color: var(--jade); font: 700 0.62rem/1 var(--mono); text-transform: uppercase; }
+.standing-grid span { color: var(--jade); font: 700 0.72rem/1 var(--mono); text-transform: uppercase; }
 .standing-grid strong { display: block; margin-top: 0.8rem; font: 500 1.7rem/1.1 var(--serif); }
 .standing-grid p { color: var(--muted); }
 
 .next-gate { display: grid; grid-template-columns: 1fr auto; gap: 1rem 2rem; align-items: center; margin-top: 3rem; padding: clamp(1.5rem, 4vw, 2.5rem); border: 1px solid var(--line); border-radius: 14px; background: radial-gradient(circle at 100% 50%, rgb(82 214 189 / 8%), transparent 22rem), var(--panel); }
-.next-gate span { color: var(--jade); font: 700 0.62rem/1 var(--mono); text-transform: uppercase; }
+.next-gate span { color: var(--jade); font: 700 0.72rem/1 var(--mono); text-transform: uppercase; }
 .next-gate h3 { margin: 0.5rem 0 0; font: 500 clamp(2rem, 4vw, 3.4rem)/1 var(--serif); }
 .next-gate p { margin-bottom: 0; color: var(--muted); }
 .next-gate button { min-height: 46px; padding: 0.8rem 1rem; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-soft); color: var(--faint); font-weight: 800; }
