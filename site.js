@@ -26,7 +26,20 @@ function openAtTopOrAnchor() {
 }
 
 openAtTopOrAnchor();
-window.addEventListener('pageshow', openAtTopOrAnchor);
+
+window.addEventListener('pageshow', (event) => {
+  openAtTopOrAnchor();
+
+  // On a back/forward restore from the bfcache some browsers reapply the old
+  // scroll position after pageshow has run, so assert it again next frame.
+  if (event.persisted) {
+    requestAnimationFrame(openAtTopOrAnchor);
+  }
+});
+
+window.addEventListener('popstate', () => {
+  requestAnimationFrame(openAtTopOrAnchor);
+});
 
 const root = document.documentElement;
 const toggle = document.querySelector('[data-theme-toggle]');
