@@ -351,8 +351,8 @@ button,
   background:
     linear-gradient(90deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 72%, transparent) 31%, color-mix(in srgb, var(--bg) 48%, transparent) 62%, var(--bg) 100%),
     linear-gradient(0deg, var(--bg) 0%, transparent 24%, transparent 76%, var(--bg) 100%),
-    url('./public/vault-archive.webp') center 42% / cover no-repeat;
-  filter: grayscale(0.62) sepia(0.42) saturate(0.78) contrast(1.02) brightness(0.88);
+    url('./public/vault-stage-dark.webp') center 42% / cover no-repeat;
+  filter: grayscale(0.12) sepia(0.1) saturate(0.82) contrast(0.96) brightness(0.78);
   opacity: 0.31;
 }
 
@@ -368,9 +368,9 @@ button,
   background:
     linear-gradient(90deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 72%, transparent) 31%, color-mix(in srgb, var(--bg) 56%, transparent) 62%, var(--bg) 100%),
     linear-gradient(0deg, var(--bg) 0%, transparent 24%, transparent 76%, var(--bg) 100%),
-    url('./public/vault-archive.webp') center 42% / cover no-repeat;
-  filter: grayscale(0.72) sepia(0.28) saturate(0.62) contrast(0.74) brightness(1.28);
-  opacity: 0.22;
+    url('./public/vault-stage-light.webp') center 42% / cover no-repeat;
+  filter: grayscale(0.08) sepia(0.05) saturate(0.82) contrast(0.92) brightness(1.02);
+  opacity: 0.18;
 }
 
 .home-page .hero-copy {
@@ -574,8 +574,8 @@ h1 {
 
 :root[data-theme='light'] .vault-art::after {
   background:
-    linear-gradient(to bottom, rgb(44 44 44 / 2%) 0%, rgb(44 44 44 / 5%) 40%, rgb(44 44 44 / 24%) 78%, rgb(44 44 44 / 54%) 100%),
-    linear-gradient(90deg, rgb(44 44 44 / 8%), transparent 48%, rgb(44 44 44 / 5%));
+    linear-gradient(to bottom, rgb(44 44 44 / 1%) 0%, rgb(44 44 44 / 3%) 42%, rgb(44 44 44 / 14%) 78%, rgb(44 44 44 / 30%) 100%),
+    linear-gradient(90deg, rgb(44 44 44 / 4%), transparent 48%, rgb(44 44 44 / 3%));
 }
 
 .vault-art img {
@@ -583,14 +583,14 @@ h1 {
   height: 100%;
   object-fit: cover;
   object-position: 52% center;
-  filter: grayscale(0.48) sepia(0.44) saturate(0.82) contrast(1.02) brightness(1.08);
+  filter: grayscale(0.12) sepia(0.12) saturate(0.88) contrast(1.04) brightness(0.96);
   transform: scale(1.01);
   transform-origin: center;
   transition: opacity 320ms ease, transform 700ms cubic-bezier(0.16, 1, 0.3, 1), filter 420ms ease;
 }
 
 .hero-stage:hover .vault-art img {
-  filter: grayscale(0.4) sepia(0.4) saturate(0.88) contrast(1.04) brightness(1.12);
+  filter: grayscale(0.08) sepia(0.1) saturate(0.92) contrast(1.06) brightness(0.98);
   transform: scale(1.035);
 }
 
@@ -617,13 +617,13 @@ h1 {
 }
 
 :root[data-theme='light'] .vault-art img {
-  opacity: 0.84;
-  filter: grayscale(0.38) sepia(0.2) saturate(0.82) contrast(1.12) brightness(0.88);
+  opacity: 0.94;
+  filter: grayscale(0.06) sepia(0.04) saturate(0.84) contrast(1.04) brightness(0.98);
 }
 
 :root[data-theme='light'] .hero-stage:hover .vault-art img {
-  opacity: 0.92;
-  filter: grayscale(0.32) sepia(0.18) saturate(0.88) contrast(1.16) brightness(0.9);
+  opacity: 1;
+  filter: grayscale(0.03) sepia(0.03) saturate(0.88) contrast(1.06) brightness(1);
 }
 
 .stage-heading,
@@ -815,7 +815,7 @@ h1 {
 
 @keyframes vault-reveal-light {
   from { opacity: 0; transform: scale(1.07); }
-  to { opacity: 0.84; transform: scale(1.01); }
+  to { opacity: 0.94; transform: scale(1.01); }
 }
 
 @keyframes route-signal {

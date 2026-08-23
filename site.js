@@ -2,6 +2,7 @@ const root = document.documentElement;
 const themeToggle = document.querySelector('[data-theme-toggle]');
 const themeLabel = document.querySelector('[data-theme-label]');
 const themeColor = document.querySelector('meta[name="theme-color"]');
+const themeImages = document.querySelectorAll('[data-theme-image]');
 const preferredTheme = window.matchMedia('(prefers-color-scheme: light)');
 
 function readSavedTheme() {
@@ -26,6 +27,11 @@ function applyTheme(theme) {
 
   root.dataset.theme = nextTheme;
   themeColor?.setAttribute('content', nextTheme === 'dark' ? '#2c2c2c' : '#f3f4f4');
+
+  themeImages.forEach((image) => {
+    const source = nextTheme === 'light' ? image.dataset.lightSrc : image.dataset.darkSrc;
+    if (source && image.getAttribute('src') !== source) image.setAttribute('src', source);
+  });
 
   if (themeToggle) {
     themeToggle.setAttribute('aria-label', `Switch to ${nextLabel.toLowerCase()} theme`);
